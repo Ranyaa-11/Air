@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>AIRWISE | Air Quality Intelligence</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+
+    <style>
+        :root {
+            --background: #07151d;
+            --surface: #102832;
+            --accent: #35d0b5;
+            --text: #e8f3f1;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        .home-page {
+            background: var(--background);
+            color: var(--text);
+            font-size: 18px;
+        }
+
+        .home-page h1,
+        .home-page h2,
+        .home-page h3,
+        .home-page strong,
+        .home-page .logo,
+        .home-page .nav-links a,
+        .home-page .footer-navigation a {
+            color: var(--text);
+        }
+
+        .home-page p,
+        .home-page span:not(.status-dot) {
+            color: rgba(232, 243, 241, 0.78);
+            line-height: 1.7;
+        }
+
+        .home-page h1 {
+            font-size: clamp(3.2rem, 7vw, 6rem);
+            line-height: 1.05;
+            margin: 1.8rem 0;
+        }
+
+        .home-page h2 {
+            font-size: clamp(2rem, 4vw, 3.2rem);
+            line-height: 1.15;
+        }
+
+        .home-page h3 {
+            font-size: 1.4rem;
+        }
+
+        .home-page .hero-container {
+            align-items: center;
+            gap: 5rem;
+        }
+
+        .home-page .hero-text {
+            padding: 2rem 0;
+        }
+
+        .home-page .hero-text > p {
+            max-width: 580px;
+            margin-bottom: 2.2rem;
+            font-size: 1.1rem;
+        }
+
+        .home-page .status-badge,
+        .home-page .section-label,
+        .home-page .feature-number,
+        .home-page .about-badge,
+        .home-page .live-indicator,
+        .home-page .feature-link,
+        .home-page .card-link {
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        .home-page .hero-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .home-page .primary-btn,
+        .home-page .secondary-btn {
+            min-height: 52px;
+            padding: .9rem 1.4rem;
+            border-radius: 999px;
+            font-size: 1rem;
+            font-weight: 700;
+            text-decoration: none;
+            transition: .25s ease;
+        }
+
+        .home-page .primary-btn {
+            background: var(--accent);
+            color: var(--background);
+            box-shadow: 0 10px 25px rgba(53, 208, 181, .22);
+        }
+
+        .home-page .secondary-btn {
+            color: var(--text);
+            border: 1px solid var(--accent);
+            background: transparent;
+        }
+
+        .home-page .primary-btn:hover,
+        .home-page .secondary-btn:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 28px rgba(53, 208, 181, .3);
+        }
+
+        .home-page .aqi-preview,
+        .home-page .feature-card,
+        .home-page .stat-card {
+            background: var(--surface);
+            border: 1px solid rgba(53, 208, 181, .45);
+            border-radius: 22px;
+        }
+
+        .home-page .aqi-preview {
+            min-width: 0;
+            padding: 2rem;
+            box-shadow: 0 20px 45px rgba(0, 0, 0, .25);
+        }
+
+        .home-page .aqi-preview h3,
+        .home-page .aqi-preview strong,
+        .home-page .aqi-preview .aqi-number strong,
+        .home-page .stat-card strong {
+            color: var(--accent);
+        }
+
+        .home-page .aqi-main {
+            margin: 2rem 0;
+        }
+
+        .home-page .aqi-number strong {
+            font-size: 5rem;
+        }
+
+        .home-page .pollutant-preview {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: .7rem;
+        }
+
+        .home-page .pollutant-preview > div {
+            min-width: 0;
+            padding: .9rem .5rem;
+            text-align: center;
+            background: var(--background);
+            border: 1px solid rgba(53, 208, 181, .35);
+            border-radius: 12px;
+        }
+
+        .home-page .pollutant-preview span {
+            display: block;
+            font-size: .8rem;
+        }
+
+        .home-page .pollutant-preview strong {
+            display: block;
+            margin-top: .35rem;
+            color: var(--text);
+            font-size: .85rem;
+        }
+
+        .home-page .feature-card {
+            transition: transform .25s ease, border-color .25s ease;
+        }
+
+        .home-page .feature-card:hover {
+            transform: translateY(-8px);
+            border-color: var(--accent);
+        }
+
+        .home-page .feature-icon {
+            color: var(--accent);
+        }
+
+        .home-page .stats-section,
+        .home-page .about-section {
+            background: rgba(16, 40, 50, .45);
+        }
+
+        .home-page footer {
+            background: var(--background);
+        }
+
+        @media (max-width: 768px) {
+            .home-page {
+                font-size: 17px;
+            }
+
+            .home-page .hero-container {
+                gap: 2rem;
+            }
+
+            .home-page h1 {
+                font-size: 3.2rem;
+            }
+
+            .home-page .hero-buttons {
+                flex-direction: column;
+            }
+
+            .home-page .primary-btn,
+            .home-page .secondary-btn {
+                width: 100%;
+                min-height: 56px;
+                text-align: center;
+            }
+
+            .home-page .pollutant-preview {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .home-page .aqi-preview {
+                padding: 1.3rem;
+            }
+        }
+    </style>
+</head>
+
+<body class="home-page">
+
+    <!-- ================= NAVBAR ================= -->
+
+    <header class="navbar">
+
+        <div class="nav-container">
+
+            <a href="/" class="logo">
+                AIR<span>WISE</span>
+            </a>
+
+            <nav class="nav-links">
+                <a href="/" class="active">Home</a>
+                <a href="/monitoring">Real-Time Monitoring</a>
+                <a href="/policy">Policy Analysis</a>
+                <a href="/prediction">Future AQI Prediction</a>
+            </nav>
+
+        </div>
+
+    </header>
+
+
+    <!-- ================= HERO ================= -->
+
+    <main>
+
+        <section class="hero">
+
+            <div class="hero-container">
+
+                <div class="hero-text">
+
+                    <div class="status-badge">
+                        <span class="status-dot"></span>
+                        AIR QUALITY INTELLIGENCE
+                    </div>
+
+                    <h1>
+                        Know the air.
+                        <br>
+                        <span>Understand the impact.</span>
+                    </h1>
+
+                    <p>
+                        AIRWISE brings real-time air quality monitoring,
+                        pollution analysis and policy impact assessment
+                        together in one platform.
+                    </p>
+
+                    <div class="hero-buttons">
+
+                        <a href="/monitoring" class="primary-btn">
+                            Check Air Quality
+                            <span>→</span>
+                        </a>
+
+                        <a href="/policy" class="secondary-btn">
+                            Explore Policy Analysis
+                        </a>
+
+                    </div>
+
+                </div>
+
+
+                <!-- AQI PREVIEW CARD -->
+
+                <div class="aqi-preview">
+
+                    <div class="aqi-top">
+
+                        <div>
+                            <span class="small-label">LIVE AIR QUALITY</span>
+                            <h3>Karnataka</h3>
+                        </div>
+
+                        <div class="live-indicator">
+                            <span></span> LIVE
+                        </div>
+
+                    </div>
+
+
+                    <div class="aqi-main">
+
+                        <div class="aqi-number">
+                            <strong>—</strong>
+                            <span>AQI</span>
+                        </div>
+
+                        <div class="aqi-status">
+                            <span>Real-Time Data</span>
+                            <p>
+                                Select a location to view
+                                current air quality.
+                            </p>
+                        </div>
+
+                    </div>
+
+
+                    <div class="pollutant-preview">
+
+                        <div>
+                            <span>PM2.5</span>
+                            <strong>—</strong>
+                        </div>
+
+                        <div>
+                            <span>PM10</span>
+                            <strong>—</strong>
+                        </div>
+
+                        <div>
+                            <span>NO₂</span>
+                            <strong>—</strong>
+                        </div>
+
+                        <div>
+                            <span>CO</span>
+                            <strong>—</strong>
+                        </div>
+
+                    </div>
+
+                    <a href="/monitoring" class="card-link">
+                        Open Live Monitoring →
+                    </a>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ================= QUICK ACCESS ================= -->
+
+        <section class="quick-section">
+
+            <div class="section-container">
+
+                <div class="section-header">
+
+                    <div>
+                        <span class="section-label">EXPLORE AIRWISE</span>
+
+                        <h2>
+                            Everything you need to understand
+                            air quality.
+                        </h2>
+                    </div>
+
+                    <p>
+                        Explore live environmental information,
+                        policy impacts and future AQI insights.
+                    </p>
+
+                </div>
+
+
+                <div class="feature-grid">
+
+                    <!-- MONITORING -->
+
+                    <a href="/monitoring" class="feature-card">
+
+                        <div class="feature-icon monitoring-icon">
+                            ◉
+                        </div>
+
+                        <div class="feature-content">
+
+                            <span class="feature-number">
+                                01
+                            </span>
+
+                            <h3>Real-Time Monitoring</h3>
+
+                            <p>
+                                View current AQI and pollutant
+                                concentrations from monitoring stations.
+                            </p>
+
+                            <span class="feature-link">
+                                View live data →
+                            </span>
+
+                        </div>
+
+                    </a>
+
+
+                    <!-- POLICY -->
+
+                    <a href="/policy" class="feature-card">
+
+                        <div class="feature-icon policy-icon">
+                            ▣
+                        </div>
+
+                        <div class="feature-content">
+
+                            <span class="feature-number">
+                                02
+                            </span>
+
+                            <h3>Policy Impact Analysis</h3>
+
+                            <p>
+                                Compare pollution levels before and
+                                after environmental policy implementation.
+                            </p>
+
+                            <span class="feature-link">
+                                Analyze policies →
+                            </span>
+
+                        </div>
+
+                    </a>
+
+
+                    <!-- PREDICTION -->
+
+                    <a href="/prediction" class="feature-card">
+
+                        <div class="feature-icon prediction-icon">
+                            ↗
+                        </div>
+
+                        <div class="feature-content">
+
+                            <span class="feature-number">
+                                03
+                            </span>
+
+                            <h3>Future AQI Prediction</h3>
+
+                            <p>
+                                Explore machine-learning based
+                                prediction of future air quality.
+                            </p>
+
+                            <span class="feature-link">
+                                View predictions →
+                            </span>
+
+                        </div>
+
+                    </a>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ================= STATISTICS ================= -->
+
+        <section class="stats-section">
+
+            <div class="stats-container">
+
+                <div class="stats-heading">
+
+                    <span class="section-label">
+                        AIRWISE AT A GLANCE
+                    </span>
+
+                    <h2>
+                        From raw pollution data
+                        to meaningful insights.
+                    </h2>
+
+                </div>
+
+
+                <div class="stats-grid">
+
+                    <div class="stat-card">
+
+                        <strong>15+</strong>
+
+                        <span>
+                            Karnataka<br>
+                            Locations
+                        </span>
+
+                    </div>
+
+
+                    <div class="stat-card">
+
+                        <strong>6</strong>
+
+                        <span>
+                            Key<br>
+                            Pollutants
+                        </span>
+
+                    </div>
+
+
+                    <div class="stat-card">
+
+                        <strong>3</strong>
+
+                        <span>
+                            Core<br>
+                            Modules
+                        </span>
+
+                    </div>
+
+
+                    <div class="stat-card">
+
+                        <strong>24/7</strong>
+
+                        <span>
+                            Real-Time<br>
+                            Monitoring
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ================= ABOUT ================= -->
+
+        <section class="about-section">
+
+            <div class="about-container">
+
+                <div class="about-badge">
+                    ABOUT AIRWISE
+                </div>
+
+                <h2>
+                    Making air-quality information
+                    easier to understand.
+                </h2>
+
+                <p>
+                    AIRWISE is an AI-driven environmental platform
+                    designed to combine real-time monitoring,
+                    historical pollution analysis, policy evaluation
+                    and future air-quality insights in a single
+                    web application.
+                </p>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <!-- ================= FOOTER ================= -->
+
+    <footer>
+
+        <div class="footer-container">
+
+            <div class="footer-brand">
+
+                <a href="/" class="logo">
+                    AIR<span>WISE</span>
+                </a>
+
+                <p>
+                    AI-driven solution for pollution
+                    monitoring, analysis and prediction.
+                </p>
+
+            </div>
+
+
+            <div class="footer-navigation">
+
+                <span>QUICK LINKS</span>
+
+                <a href="/">Home</a>
+                <a href="/monitoring">Real-Time Monitoring</a>
+                <a href="/policy">Policy Analysis</a>
+                <a href="/prediction">Future AQI Prediction</a>
+
+            </div>
+
+
+            <div class="footer-project">
+
+                <span>PROJECT</span>
+
+                <p>
+                    Air Quality Intelligence
+                </p>
+
+                <p>
+                    Karnataka
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <div class="footer-bottom">
+
+            <p>
+                © 2026 AIRWISE Project
+            </p>
+
+            <p>
+                AI • Environment • Data
+            </p>
+
+        </div>
+
+    </footer>
+
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+
+</body>
+
+</html>

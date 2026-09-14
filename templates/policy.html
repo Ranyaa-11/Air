@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>AIRWISE | Policy Analysis</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/policy.css') }}">
+
+</head>
+
+<body>
+
+    <!-- Navigation -->
+
+    <header class="navbar">
+
+        <div class="logo">
+            AIR<span>WISE</span>
+        </div>
+
+        <nav>
+
+            <a href="/">Home</a>
+
+            <a href="/monitoring">
+                Real-Time Monitoring
+            </a>
+
+            <a href="/policy" class="active">
+                Policy Analysis
+            </a>
+
+            <a href="/prediction">
+                Future AQI Prediction
+            </a>
+
+        </nav>
+
+    </header>
+
+    <!-- Page Header -->
+
+    <section class="policy-header">
+
+        <p class="tag">
+            POLICY IMPACT ANALYSIS
+        </p>
+
+        <h1>
+            Policy Analysis
+        </h1>
+
+        <p>
+            Evaluate changes in pollution levels before and
+            after environmental policy implementation.
+        </p>
+
+    </section>
+
+    <!-- Analysis Settings -->
+
+    <section class="analysis-section">
+
+        <div class="section-title">
+
+            <p class="tag">
+                ANALYSIS SETTINGS
+            </p>
+
+            <h2>
+                Select Analysis Criteria
+            </h2>
+
+        </div>
+
+        <div class="control-grid">
+
+            <!-- District -->
+
+            <div class="control-card">
+
+                <label for="district-select">
+                    Select District
+                </label>
+
+                <select id="district-select">
+
+                    <option value="">
+                        Select District
+                    </option>
+
+                </select>
+
+            </div>
+
+            <!-- Policy -->
+
+            <div class="control-card">
+
+                <label for="policy-select">
+                    Select Policy
+                </label>
+
+                <select id="policy-select" disabled>
+
+                    <option value="">
+                        Select District First
+                    </option>
+
+                </select>
+
+            </div>
+
+            <!-- Window -->
+
+            <div class="control-card">
+
+                <label for="window-select">
+                    Analysis Window
+                </label>
+
+                <select id="window-select">
+
+                    <option value="1">
+                        1 Month
+                    </option>
+
+                    <option value="3" selected>
+                        3 Months
+                    </option>
+
+                    <option value="6">
+                        6 Months
+                    </option>
+
+                </select>
+
+            </div>
+
+            <!-- Affected Pollutants -->
+
+            <div class="control-card">
+
+                <label>
+                    Affected Pollutants
+                </label>
+
+                <div id="pollutant-display"
+                     class="pollutant-display">
+
+                    Select a policy to view
+                    affected pollutants.
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <button id="analyze-button"
+                class="analyze-button">
+
+            Analyze Policy
+
+        </button>
+
+    </section>
+
+    <!-- Policy Summary -->
+
+    <section class="summary-section">
+
+        <div class="section-title">
+
+            <p class="tag">
+                POLICY SUMMARY
+            </p>
+
+            <h2>
+                Analysis Overview
+            </h2>
+
+        </div>
+
+        <div class="metrics-grid">
+
+            <div class="metric-card">
+
+                <span>
+                    DISTRICT
+                </span>
+
+                <strong id="metric-district">
+                    --
+                </strong>
+
+            </div>
+
+            <div class="metric-card">
+
+                <span>
+                    POLICY
+                </span>
+
+                <strong id="metric-policy">
+                    --
+                </strong>
+
+            </div>
+
+            <div class="metric-card">
+
+                <span>
+                    IMPROVED POLLUTANTS
+                </span>
+
+                <strong id="metric-improved">
+                    --
+                </strong>
+
+            </div>
+
+            <div class="metric-card">
+
+                <span>
+                    OVERALL IMPACT
+                </span>
+
+                <strong id="metric-status">
+                    --
+                </strong>
+
+            </div>
+
+        </div>
+
+    </section>
+
+    <!-- Summary Message -->
+
+    <section class="impact-section">
+
+        <div>
+
+            <p class="tag">
+                POLICY IMPACT
+            </p>
+
+            <h2>
+                Analysis Summary
+            </h2>
+
+            <p id="summary-message">
+                Select a district, policy and analysis
+                window to begin.
+            </p>
+
+        </div>
+
+    </section>
+
+    <!-- Results Table -->
+
+    <section class="results-section">
+
+        <div class="section-title">
+
+            <p class="tag">
+                ANALYSIS RESULTS
+            </p>
+
+            <h2>
+                Before vs After
+            </h2>
+
+        </div>
+
+        <div class="table-container">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>
+                            Pollutant
+                        </th>
+
+                        <th>
+                            Before
+                        </th>
+
+                        <th>
+                            After
+                        </th>
+
+                        <th>
+                            % Change
+                        </th>
+
+                        <th>
+                            Trend
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody id="results-body">
+
+                    <tr>
+
+                        <td colspan="5">
+                            Run an analysis to view results.
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+    <!-- Chart -->
+
+    <section class="chart-section">
+
+        <div class="section-title">
+
+            <p class="tag">
+                VISUAL ANALYSIS
+            </p>
+
+            <h2>
+                Before vs After Comparison
+            </h2>
+
+        </div>
+
+        <div class="chart-container">
+
+            <canvas id="policyChart"></canvas>
+
+        </div>
+
+    </section>
+
+    <!-- Insights -->
+
+    <section class="insights-section">
+
+        <div class="section-title">
+
+            <p class="tag">
+                KEY INSIGHTS
+            </p>
+
+            <h2>
+                Policy Findings
+            </h2>
+
+        </div>
+
+        <div id="insights">
+
+            <p>
+                Run the analysis to generate insights.
+            </p>
+
+        </div>
+
+        <h3>
+            Recommendation
+        </h3>
+
+        <p id="recommendation">
+
+            Recommendation will appear after analysis.
+
+        </p>
+
+    </section>
+
+    <!-- Footer -->
+
+    <footer>
+
+        <div class="logo">
+            AIR<span>WISE</span>
+        </div>
+
+        <p>
+            AI-driven solution for pollution monitoring,
+            analysis and prediction.
+        </p>
+
+        <p class="copyright">
+            © 2026 AIRWISE Project
+        </p>
+
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script src="{{ url_for('static',
+                  filename='js/policy.js') }}">
+    </script>
+
+</body>
+
+</html>
