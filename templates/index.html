@@ -11,22 +11,60 @@
       <a class="btn btn-primary" href="/monitoring">Explore live dashboard <span aria-hidden="true">↗</span></a>
       <a class="btn btn-secondary" href="/prediction"><span class="play-icon" aria-hidden="true">▷</span> Explore projections</a>
     </div>
-    <div class="hero-trust"><span class="live-dot"></span> <span>District air-quality estimates</span><span class="trust-divider"></span><span><span id="districtCount">--</span> Karnataka districts</span><span class="trust-divider"></span><span>Live data: CPCBCCR API</span></div>
+    <div class="hero-trust"><span class="live-dot"></span> <span>District air-quality estimates</span><span class="trust-divider"></span><span><span id="districtCount">--</span> Karnataka districts</span><span class="trust-divider"></span><span>Powered by AIRWISE XGBoost</span></div>
   </div>
 
-  <div class="hero-visual" aria-label="AIRWISE district air quality overview">
-    <div class="hero-map-panel glass-panel">
-      <div class="mini-card-top"><span>LIVE ESTIMATE</span><span id="heroCityLabel">Bengaluru</span></div>
-      <div class="mini-aqi-row"><div id="heroAqi" class="mini-aqi">--</div><div><div id="heroCategory" class="mini-category">Connecting…</div><div class="mini-caption">Current district estimate</div></div></div>
-      <div class="mini-meter"><span id="heroMeter"></span></div>
-      <div class="district-heat-grid">
-        <div><span>PM2.5</span><strong id="heroPm25">--</strong></div>
-        <div><span>PM10</span><strong id="heroPm10">--</strong></div>
-        <div><span>NO₂</span><strong id="heroNo2">--</strong></div>
-        <div><span>O₃</span><strong id="heroOzone">--</strong></div>
-      </div>
-      <div class="mini-card-bottom"><span>District coverage</span><span id="coverageCount">--</span></div>
+  <div class="hero-visual" aria-label="AIRWISE air quality globe visualization">
+    <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+    <div class="globe-halo"></div>
+    <div class="globe">
+      <svg class="globe-svg" viewBox="0 0 420 420" role="img" aria-label="Stylized illuminated Earth">
+        <defs>
+          <radialGradient id="globeFill" cx="33%" cy="28%" r="78%">
+            <stop offset="0%" stop-color="#155e75"/>
+            <stop offset="45%" stop-color="#102b43"/>
+            <stop offset="100%" stop-color="#081526"/>
+          </radialGradient>
+          <linearGradient id="landFill" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stop-color="#34d399" stop-opacity=".82"/>
+            <stop offset="100%" stop-color="#0891b2" stop-opacity=".3"/>
+          </linearGradient>
+          <clipPath id="globeClip"><circle cx="210" cy="210" r="183"/></clipPath>
+          <filter id="glow"><feGaussianBlur stdDeviation="5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <circle cx="210" cy="210" r="183" fill="url(#globeFill)" stroke="#4ad9dc" stroke-opacity=".48" stroke-width="1.5"/>
+        <g clip-path="url(#globeClip)" fill="none" stroke="#7dd3fc" stroke-opacity=".16">
+          <ellipse cx="210" cy="210" rx="178" ry="66"/><ellipse cx="210" cy="210" rx="178" ry="124"/>
+          <ellipse cx="210" cy="210" rx="92" ry="178"/><ellipse cx="210" cy="210" rx="143" ry="178"/>
+          <path d="M28 210h364M43 145h334M43 275h334"/>
+        </g>
+        <g clip-path="url(#globeClip)" fill="url(#landFill)" stroke="#71f1c3" stroke-opacity=".4" stroke-width="1.2">
+          <path d="m94 105 20-19 22 6 13-12 25 6 7 14 22 7 7 20-13 12-24-4-14 16-17-2-7 17-17 2-6-19-19-2-12-16 9-14-4-12z"/>
+          <path d="m156 183 19-12 18 8 5 16 14 11-7 27-13 23-9 37-14 29-13-16 1-26-12-25 2-24-10-18 4-19z"/>
+          <path d="m226 103 24-12 21 8 18-4 22 13 3 16 19 11-8 15-21 3-10 19-18 1-15-14-16 4-5-18-23-3-11-18 10-21z"/>
+          <path d="m251 185 18-11 26 4 19 19 13 2 8 20-13 25-9 25-18 20-15-13-8-27-18-13-4-24-14-12z"/>
+          <path d="m324 267 19-11 25 11 7 16-15 16-24-3-17-13z"/>
+        </g>
+        <g filter="url(#glow)">
+          <circle cx="270" cy="180" r="4" fill="#a7f3d0"/><circle cx="293" cy="224" r="3" fill="#67e8f9"/>
+          <circle cx="242" cy="242" r="3.5" fill="#34d399"/><circle cx="191" cy="157" r="3" fill="#67e8f9"/>
+        </g>
+        <circle cx="270" cy="180" r="12" fill="none" stroke="#a7f3d0" stroke-opacity=".55"><animate attributeName="r" values="6;16;6" dur="3s" repeatCount="indefinite"/><animate attributeName="stroke-opacity" values=".7;0;.7" dur="3s" repeatCount="indefinite"/></circle>
+      </svg>
     </div>
+    <div class="orbit-node node-top"><span class="node-pulse"></span><span>DISTRICT NETWORK</span></div>
+    <div class="orbit-node node-bottom"><span class="node-icon">⌁</span><span>EARTH · AIR · ACTION</span></div>
+    <div class="floating-glass hero-live-card">
+      <div class="mini-card-top"><span>MODEL ESTIMATE</span><span id="heroCityLabel">Bengaluru</span></div>
+      <div class="mini-aqi-row"><div id="heroAqi" class="mini-aqi">--</div><div><div id="heroCategory" class="mini-category">Connecting…</div><div class="mini-caption">Model estimate (time)</div></div></div>
+      <div class="mini-meter"><span id="heroMeter"></span></div>
+      <div class="mini-card-bottom"><span>Model estimate (time)</span><span id="heroUpdated">--</span></div>
+    </div>
+    <div class="floating-glass hero-float-card">
+      <span class="float-icon">✳</span><div><span class="float-label">DISTRICT COVERAGE</span><strong><span id="coverageCount">--</span> <small>districts</small></strong></div>
+      <span class="float-spark" aria-hidden="true">⌁</span>
+    </div>
+    <div class="hero-orb"></div>
   </div>
 
   <a class="scroll-cue" href="#liveOverview"><span></span> SCROLL TO EXPLORE</a>
@@ -56,10 +94,10 @@
       </div>
     </article>
     <article class="glass-panel trend-panel">
-      <div class="panel-heading"><div><span class="panel-kicker">API MONITORING LOG</span><h3 id="homeTrendTitle">CPCBCCR AQI, last 48 hours</h3></div><span class="chart-badge">STORED API RECORDS</span></div>
-      <div class="chart-legend"><span><i class="legend-dot blue-dot"></i>CPCBCCR AQI</span><span class="chart-district" id="trendCityLabel">Bengaluru</span></div>
-      <div class="chart-shell"><canvas id="homeTrendChart" aria-label="48-hour CPCBCCR AQI log"></canvas></div>
-      <div class="trend-foot"><span id="homeTrendNote">Loading timestamped API records stored by AIRWISE…</span><a href="/monitoring">Open monitoring ↗</a></div>
+      <div class="panel-heading"><div><span class="panel-kicker">ENVIRONMENTAL ANALYTICS</span><h3 id="homeTrendTitle">Air quality, over time</h3></div><span class="chart-badge">90 DAY TREND</span></div>
+      <div class="chart-legend"><span><i class="legend-dot blue-dot"></i>Daily AQI</span><span class="chart-district" id="trendCityLabel">Bengaluru</span></div>
+      <div class="chart-shell"><canvas id="homeTrendChart" aria-label="Daily AQI history chart"></canvas></div>
+      <div class="trend-foot"><span id="homeTrendNote">Loading historical district data…</span><a href="/monitoring">View trends ↗</a></div>
     </article>
   </div>
 </section>
@@ -67,19 +105,30 @@
 <section class="section-block map-section" id="districtNetwork">
   <div class="section-heading">
     <div><div class="eyebrow"><span class="eyebrow-dot"></span> KARNATAKA DISTRICT NETWORK</div><h2>Air quality, <span class="gradient-text">mapped.</span></h2><p class="section-description">Explore current-hour AQI estimates across the AIRWISE district network.</p></div>
-    <div class="map-legend"><span><i class="legend-dot green-dot"></i>Good</span><span><i class="legend-dot yellow-dot"></i>Satisfactory</span><span><i class="legend-dot orange-dot"></i>Moderate</span><span><i class="legend-dot red-dot"></i>Poor</span><span><i class="legend-dot deep-red-dot"></i>Very Poor</span><span><i class="legend-dot purple-dot"></i>Severe</span></div>
+    <div class="map-legend"><span><i class="legend-dot green-dot"></i>Good</span><span><i class="legend-dot yellow-dot"></i>Moderate</span><span><i class="legend-dot red-dot"></i>Elevated</span></div>
   </div>
   <div class="map-dashboard glass-panel">
     <div class="map-frame"><div id="map" class="map" aria-label="Interactive air quality map of Karnataka"></div><div class="map-overlay-label">DISTRICT ESTIMATES</div></div>
   </div>
-  <p class="data-disclaimer">Map values are CPCB AQI calculated from the live CPCBCCR API for each district. They are not physical sensor measurements and not official CPCB station readings.</p>
+  <p class="data-disclaimer">Map values are AIRWISE current-hour estimates calculated from available feed and sensor pollutants. They are not official CPCB station readings and may differ from official AQI reporting periods.</p>
+</section>
+
+<section class="section-block audience-section">
+  <div class="section-heading">
+    <div><div class="eyebrow"><span class="eyebrow-dot"></span> CROSS-FUNCTIONAL CITY TEAMS</div><h2>Built for people shaping <span class="gradient-text">healthier cities.</span></h2></div>
+  </div>
+  <div class="audience-grid">
+    <a class="audience-card glass-panel" href="/monitoring"><span class="audience-icon">⌖</span><span class="panel-kicker">CITY OPERATIONS</span><h3>See local conditions.</h3><p>Compare district estimates, monitor pollutants and explore available trends.</p><span class="audience-arrow">Explore monitoring ↗</span></a>
+    <a class="audience-card glass-panel" href="/insights"><span class="audience-icon">✳</span><span class="panel-kicker">PUBLIC HEALTH & RESEARCH</span><h3>Put air data in context.</h3><p>Review elevated pollutant indicators and scenario simulations with clear caveats.</p><span class="audience-arrow">Explore insights ↗</span></a>
+    <a class="audience-card glass-panel" href="/policy"><span class="audience-icon">▤</span><span class="panel-kicker">POLICY & PLANNING</span><h3>Connect evidence to action.</h3><p>Explore policy-linked pollutant trends and compare before-and-after windows.</p><span class="audience-arrow">Explore policy analysis ↗</span></a>
+  </div>
 </section>
 
 <section class="closing-cta">
   <div class="closing-glow"></div><div class="eyebrow"><span class="eyebrow-dot"></span> A CLEARER VIEW STARTS HERE</div>
   <h2>Let better air data<br><span class="gradient-text">move decisions forward.</span></h2>
   <p>Explore district conditions, projections and policy signals across Karnataka.</p>
-  <div class="hero-actions"><a class="btn btn-primary" href="/monitoring">Open live monitoring <span>↗</span></a></div>
+  <div class="hero-actions"><a class="btn btn-primary" href="/monitoring">Open AIRWISE <span>↗</span></a><a class="btn btn-secondary" href="/policy">Explore policy analysis</a></div>
 </section>
 {% endblock %}
 {% block scripts %}<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>{% endblock %}
