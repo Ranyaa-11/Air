@@ -27,7 +27,7 @@
         <a href="/monitoring" class="{{ 'active' if page=='monitoring' }}">Monitoring</a>
         <a href="/sensors" class="{{ 'active' if page=='sensors' }}">Sensors</a>
         <a href="/prediction" class="{{ 'active' if page=='prediction' }}">Predictions</a>
-        <a href="/insights" class="{{ 'active' if page=='insights' }}">Sources</a>
+        <a href="/insights" class="{{ 'active' if page=='insights' }}">Pollutant indicators</a>
         <a href="/policy" class="{{ 'active' if page=='policy' }}">Policy</a>
       </div>
     </nav>
@@ -41,12 +41,12 @@
       <span>AIRWISE<span class="brand-period">.</span><small>ENVIRONMENTAL INTELLIGENCE</small></span>
     </a>
     <p>Clearer air starts with clearer information.</p>
-    <div class="footer-links"><a href="/monitoring">Monitoring</a><a href="/sensors">Sensors</a><a href="/prediction">Predictions</a><a href="/insights">Sources</a><a href="/policy">Policy</a></div>
+    <div class="footer-links"><a href="/monitoring">Monitoring</a><a href="/sensors">Sensors</a><a href="/prediction">Predictions</a><a href="/insights">Pollutant indicators</a><a href="/policy">Policy</a></div>
     <span class="footer-note">Karnataka air quality · CPCB AQI from Colab logic · API estimates, physical sensors and ML forecasts are separate modules, not official station readings.</span>
   </footer>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js?v=20261102"></script>
   {% block scripts %}{% endblock %}
-  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}?v=20261102"></script>
 </body>
 </html>

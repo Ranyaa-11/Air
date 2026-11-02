@@ -63,6 +63,8 @@ button,a,select{-webkit-tap-highlight-color:transparent}
 .card,.policy-card,.pcard{border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(145deg,rgba(255,255,255,.90),rgba(233,248,255,.76));box-shadow:var(--shadow)}
 .card{margin-bottom:21px;padding:24px}
 .card h3{margin:0 0 15px;font-family:var(--display);font-size:16px;font-weight:650;letter-spacing:-.02em}
+.secondary-card{border-color:rgba(148,177,201,.24);background:linear-gradient(145deg,rgba(246,249,252,.92),rgba(239,245,250,.8));}
+.secondary-card .aqi-num,.secondary-card .aqi-cat{opacity:.88}
 .center{text-align:center}
 .muted,.small{color:var(--muted)}
 .small{font-size:12px}
