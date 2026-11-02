@@ -60,9 +60,6 @@ function updateMonitoringAgeWarning() {
       }
     }
   }
-  if (monitoringStationAge !== null && monitoringStationAge > 1440) {
-    warnings.push(`Measured station data is ${formatDataAge(monitoringStationAge)} old (over 24 hours).`);
-  }
   alertBox($("#dataAgeWarning"), "warn", warnings.join(" "));
 }
 
@@ -134,8 +131,8 @@ async function initHome() {
       charts.homeTrendChart.destroy();
       delete charts.homeTrendChart;
     }
-    $("#homeTrendTitle").textContent = "Air quality, over time";
-    $("#homeTrendNote").textContent = "Loading historical district data…";
+    $("#homeTrendTitle").textContent = "CPCBCCR AQI, last 48 hours";
+    $("#homeTrendNote").textContent = "Loading timestamped API records stored by AIRWISE…";
     try {
       const d = await api(`/api/realtime/${encodeURIComponent(city)}`);
       if (city !== currentCity) return;
@@ -154,7 +151,7 @@ async function initHome() {
       $("#homeAqiRing").style.setProperty("--aqi-progress", aqiValue == null ? "0%" : `${Math.min(aqiValue, 500) * .152}%`);
       $("#homeAqiRing").style.setProperty("--aqi-color", aqiValue == null ? "transparent" : (d.color || AQI_COLORS(aqiValue)));
       $("#homeHealth").textContent = d.health || "Not enough current data to provide health context.";
-      $("#homeLiveMeta").textContent = `Model estimate (${d.estimate_time || "--"})${d.estimate_old ? " · old estimate" : ""} · ${d.data_sources.map(s => s === "sensor" ? "AIRWISE sensor" : "CPCBCCR estimate").join(" + ")}${d.feed_warning ? ` · ${d.feed_warning}` : ""}`;
+      $("#homeLiveMeta").textContent = `CPCBCCR API (${d.estimate_time || "--"})${d.estimate_old ? " · old estimate" : ""}${d.feed_warning ? ` · ${d.feed_warning}` : ""}`;
       const values = Object.fromEntries(d.pollutants.map(p => [p.key, p.value]));
       $("#homePm25").textContent = fmt(values["PM2.5"], 1);
       $("#homePm10").textContent = fmt(values.PM10, 1);
@@ -180,28 +177,28 @@ async function initHome() {
     }
 
     try {
-      const h = await api(`/api/history/${encodeURIComponent(city)}?days=90`);
+      const l = await api(`/api/live-log/${encodeURIComponent(city)}?hours=48`);
       if (city !== currentCity) return;
-      const t = h.trend;
+      const points = l.points || [];
       draw("homeTrendChart", {
         type: "line",
-        data: { labels: t.dates, datasets: [{
-          label: "Daily AQI", data: t.aqi, borderColor: "#38bdf8", backgroundColor: "rgba(56,189,248,.1)",
-          fill: true, pointRadius: 0, pointHitRadius: 10, borderWidth: 2, tension: .38
+        data: { labels: points.map(p => p.t), datasets: [{
+          label: "CPCBCCR AQI", data: points.map(p => p.aqi), borderColor: "#38bdf8", backgroundColor: "rgba(56,189,248,.1)",
+          fill: true, pointRadius: points.length > 40 ? 0 : 2, pointHitRadius: 10, borderWidth: 2, tension: .38
         }] },
         options: {
           maintainAspectRatio: false,
-          plugins: { legend: { display: false }, tooltip: { displayColors: false, callbacks: { title: items => t.dates[items[0].dataIndex] } } },
+          plugins: { legend: { display: false }, tooltip: { displayColors: false } },
           scales: {
             x: { grid: { display: false }, ticks: { maxTicksLimit: 6, maxRotation: 0 } },
             y: { beginAtZero: true, grid: { color: "rgba(148,163,184,.1)" }, ticks: { maxTicksLimit: 5 } }
           }
         }
       });
-      $("#homeTrendNote").textContent = t.dates.length
-        ? `${t.dates.length} daily observations · Through ${t.dates[t.dates.length - 1]}`
-        : "No historical AQI observations are available for this district.";
-      if (t.dates.length) $("#homeTrendTitle").textContent = `90 days ending ${t.dates[t.dates.length - 1]}`;
+      $("#homeTrendNote").textContent = points.length
+        ? `${points.length} API records stored by AIRWISE in the last 48 hours.`
+        : "No timestamped API records yet. This chart fills as Monitoring fetches the CPCBCCR feed.";
+      $("#homeTrendTitle").textContent = "CPCBCCR AQI, last 48 hours";
     } catch (e) {
       $("#homeTrendNote").textContent = e.message;
     }
@@ -226,7 +223,7 @@ async function initHome() {
       if (forecastChart) draw("homeForecastChart", {
         type: "line",
         data: { labels: points.map(x => x.date), datasets: [{
-          label: "Scenario AQI", data: points.map(x => x.aqi), borderColor: "#34d399",
+          label: "Projected AQI", data: points.map(x => x.aqi), borderColor: "#34d399",
           backgroundColor: "rgba(52,211,153,.09)", fill: true, pointRadius: 3,
           pointBackgroundColor: "#34d399", borderWidth: 2, tension: .35
         }] },
@@ -300,7 +297,7 @@ async function loadMonitoring() {
   $("#stationPollutantsTitle").textContent = "Measured station pollutants";
   $("#stationPollutants").innerHTML = "";
   $("#estimateFreshness").textContent = "Data age: --";
-  $("#aqiSourceLabel").textContent = "CPCBCCR model estimate";
+  $("#aqiSourceLabel").textContent = "CPCBCCR API estimate";
   $("#metaText").textContent = "";
   monitoringLiveAges = null;
   monitoringStationAge = null;
@@ -315,7 +312,7 @@ async function loadMonitoring() {
       : categoryBadge(d.aqi, d.category);
     $("#aqiBar").innerHTML = d.aqi != null ? `<i style="left:${Math.min(d.aqi, 500) / 5}%"></i>` : "";
     $("#healthText").textContent = d.health || "";
-    const sourceLabels = { api: "CPCBCCR model estimate", sensor: "AIRWISE sensors" };
+    const sourceLabels = { api: "CPCBCCR API estimate", sensor: "AIRWISE sensors" };
     const sources = (d.data_sources || []).map(source => sourceLabels[source] || source);
     $("#aqiSourceLabel").textContent = sources.length ? sources.join(" + ") : "Live estimate";
     monitoringLiveAges = {};
@@ -339,7 +336,7 @@ async function loadMonitoring() {
         <div class="val">${p.value === null ? "--" : fmt(p.value, p.key === "CO" ? 1 : p.value < 10 ? 1 : 0)}</div>
         <div class="unit">${esc(p.unit)}</div>
         <div class="sub">${p.subindex === null ? "no data" : "sub-index " + fmt(p.subindex)}</div>
-        ${p.source ? `<span class="tag ${p.source}">${p.source === "api" ? "Model" : p.source === "sensor" ? "Sensor" : esc(p.source)}</span>` : ""}
+        ${p.source ? `<span class="tag ${p.source}">${p.source === "api" ? "API" : p.source === "sensor" ? "Sensor" : esc(p.source)}</span>` : ""}
       </div>`).join("");
     $("#dominantText").textContent = d.dominant ? `${d.dominant}: ${d.dominant_info}` : "AQI could not be computed (needs at least 3 pollutants including PM2.5 or PM10).";
     const warn = [];
@@ -365,8 +362,10 @@ async function loadHistoryCharts(city) {
       $("#stationAqiValue").textContent = station.aqi;
       $("#stationAqiValue").style.color = AQI_COLORS(station.aqi);
       $("#stationAqiCategory").innerHTML = categoryBadge(station.aqi, station.category);
-      $("#stationDataAge").textContent =
-        `Data age: ${formatDataAge(station.age_minutes)} · Source timestamp: ${station.source_time}`;
+      const stationAgeText = station.age_minutes != null ? formatDataAge(station.age_minutes) : "unavailable";
+      $("#stationDataAge").textContent = station.age_minutes != null
+        ? `Historical station record: ${stationAgeText} old · source timestamp ${station.source_time || "unavailable"}`
+        : "Historical station record: unavailable";
       $("#stationOutlierNote").textContent = station.possible_outlier
         ? "Possible outlier (shown, not removed)." : "";
       monitoringStationAge = station.age_minutes;
@@ -374,7 +373,7 @@ async function loadHistoryCharts(city) {
       $("#stationAqiValue").textContent = "--";
       $("#stationAqiValue").style.color = "";
       $("#stationAqiCategory").textContent = "No measured station AQI available";
-      $("#stationDataAge").textContent = "Data age: unavailable";
+      $("#stationDataAge").textContent = "Historical station record: unavailable";
       monitoringStationAge = null;
     }
     updateMonitoringAgeWarning();
@@ -403,8 +402,10 @@ async function loadHistoryCharts(city) {
   }
   try {
     const l = await api(`/api/live-log/${encodeURIComponent(city)}?hours=48`);
-    draw("liveChart", { type: "line", data: { labels: l.points.map(p => p.t), datasets: [{ label: "AQI", data: l.points.map(p => p.aqi), borderColor: "#059669", tension: .2 }] },
-      options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { maxTicksLimit: 6 } } } } });
+    if ($("#liveChart")) {
+      draw("liveChart", { type: "line", data: { labels: l.points.map(p => p.t), datasets: [{ label: "AQI", data: l.points.map(p => p.aqi), borderColor: "#059669", tension: .2 }] },
+        options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { maxTicksLimit: 6 } } } } });
+    }
     $("#liveNote").textContent = l.points.length ? `${l.points.length} readings recorded.` : "Nothing recorded yet – this fills as the site is used.";
   } catch (e) { $("#liveNote").textContent = e.message; }
 }
@@ -434,32 +435,194 @@ async function runForecast() {
     const b = d.basis;
     $("#basisBox").innerHTML = `<div class="alert info">Latest historical day: ${esc(b.history_ends)}. Forecast begins: ${esc(b.outlook_start)}.</div>`;
     $("#modelNote").textContent = b.assumption;
+    draw("forecastTrendChart", {
+      type: "line",
+      data: { labels: d.forecast.map(x => x.date), datasets: [{
+        label: "Predicted AQI", data: d.forecast.map(x => x.aqi),
+        borderColor: "#059669", backgroundColor: "rgba(5,150,105,.12)",
+        fill: true, tension: .25, pointRadius: 4
+      }] },
+      options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    });
   } catch (e) { alertBox($("#forecastError"), "err", e.message); }
   btn.disabled = false; btn.textContent = "Generate forecast";
 }
 
 async function runCompare() {
-  const btn = $("#compareBtn"); btn.disabled = true; btn.textContent = "Fetching district data…";
+  const btn = $("#compareBtn");
+  const table = $("#compareTable");
+  const summary = $("#compareSummary");
+  if (!btn && !table && !summary) return;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Fetching district data…";
+  }
   try {
     const d = await api("/api/compare/today");
     const rows = d.rows;
-    $("#compareTable").hidden = false;
-    $("#compareTable tbody").innerHTML = rows.map(r => r.ok
-      ? `<tr><td>${esc(r.city)}${r.imputed.length ? ` <span class="tag" title="Missing current pollutants filled from history: ${esc(r.imputed.join(", "))}">imputed</span>` : ""}</td><td>${fmt(r.model_aqi, 1)}<br><span class="small muted">Model estimate (${esc(r.estimate_time || "--")})${r.estimate_old ? " · old" : ""}</span></td><td>${chip(r.estimated_aqi, r.color)}<br><span class="small muted">Model estimate (${esc(r.estimate_time || "--")})${r.estimate_old ? " · old" : ""}</span></td><td>${fmt(r.difference, 1)}<br><span class="small muted">Compared at ${esc(r.estimate_time || "--")}</span></td><td>${esc(r.dominant || "--")}</td></tr>`
-      : `<tr><td>${esc(r.city)}</td><td colspan="4" class="muted">${esc(r.error)}</td></tr>`).join("");
+    if (table) {
+      table.hidden = false;
+      table.tBodies[0].innerHTML = rows.map(r => r.ok
+        ? `<tr><td>${esc(r.city)}${r.imputed.length ? ` <span class="tag" title="Missing current pollutants filled from history: ${esc(r.imputed.join(", "))}">imputed</span>` : ""}</td><td>${fmt(r.model_aqi, 1)}<br><span class="small muted">XGBoost (${esc(r.estimate_time || "--")})${r.estimate_old ? " · old" : ""}</span></td><td>${chip(r.estimated_aqi, r.color)}<br><span class="small muted">API CPCB AQI (${esc(r.estimate_time || "--")})</span></td><td>${fmt(r.difference, 1)}</td><td>${esc(r.dominant || "--")}</td></tr>`
+        : `<tr><td>${esc(r.city)}</td><td colspan="4" class="muted">${esc(r.error)}</td></tr>`).join("");
+    }
+    const okRows = rows.filter(r => r.ok);
+    if (okRows.length && $("#compareChart")) {
+      draw("compareChart", {
+        type: "bar",
+        data: {
+          labels: okRows.map(r => r.city),
+          datasets: [
+            { label: "Predicted (XGBoost)", data: okRows.map(r => r.model_aqi), backgroundColor: "#38bdf8" },
+            { label: "Actual (API CPCB AQI)", data: okRows.map(r => r.estimated_aqi), backgroundColor: "#059669" }
+          ]
+        },
+        options: { scales: { y: { beginAtZero: true } } }
+      });
+    }
     const available = rows.filter(r => r.ok);
-    $("#compareSummary").textContent = available.length
-      ? `${available.length} districts compared. Differences are descriptive only, not accuracy scores.`
-      : "No district could be compared.";
-    $("#compareNote").textContent = d.note;
-  } catch (e) { $("#compareSummary").innerHTML = `<span class="alert err">${esc(e.message)}</span>`; }
-  btn.disabled = false; btn.textContent = "Run comparison";
+    if (summary) {
+      summary.textContent = available.length
+        ? `${available.length} districts compared. Differences are descriptive only, not accuracy scores.`
+        : "No district could be compared.";
+    }
+    const note = $("#compareNote");
+    if (note) note.textContent = d.note;
+  } catch (e) {
+    if (summary) summary.innerHTML = `<span class="alert err">${esc(e.message)}</span>`;
+  }
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = "Run comparison";
+  }
+}
+
+async function loadOutlook() {
+  const days = $("#daysSelect")?.value || 7;
+  try {
+    const d = await api(`/api/predict/outlook?days=${days}`);
+    const rows = (d.rows || []).filter(r => r.ok && r.forecast && r.forecast.length);
+    $("#outlookSummary").textContent = rows.length
+      ? `First forecast-day AQI for ${rows.length} districts from the notebook XGBoost model.`
+      : "District forecasts are unavailable.";
+    if (!rows.length) return;
+    draw("outlookChart", {
+      type: "bar",
+      data: {
+        labels: rows.map(r => r.city),
+        datasets: [{
+          label: "Predicted AQI",
+          data: rows.map(r => r.forecast[0].aqi),
+          backgroundColor: rows.map(r => r.forecast[0].color || AQI_COLORS(r.forecast[0].aqi))
+        }]
+      },
+      options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    });
+  } catch (e) {
+    $("#outlookSummary").textContent = e.message;
+  }
+}
+
+async function loadMetrics() {
+  try {
+    const d = await api("/api/predict/direct-metrics");
+    if (!d.available || !d.metrics || !d.metrics.length) {
+      $("#metricsNote").textContent = "Direct-horizon holdout metrics are not available yet. Run train_direct_forecast.py to generate them.";
+      return;
+    }
+    draw("metricsChart", {
+      type: "bar",
+      data: {
+        labels: d.metrics.map(m => `t+${m.horizon}`),
+        datasets: [
+          { label: "Model MAE", data: d.metrics.map(m => m.mae), backgroundColor: "#318cf1" },
+          { label: "Persistence MAE", data: d.metrics.map(m => m.persistence_mae), backgroundColor: "#94a3b8" }
+        ]
+      },
+      options: { scales: { y: { beginAtZero: true } } }
+    });
+  } catch (e) {
+    $("#metricsNote").textContent = e.message;
+  }
+}
+
+async function loadModelStatus() {
+  try {
+    const h = await api("/api/health");
+    const model = h.model || {};
+    $("#modelFileNote").textContent = model.loaded
+      ? `Loaded ${model.model_file || "production model"} · ${model.features || 64} features.`
+      : `Model not loaded: ${model.error || "unknown error"}`;
+  } catch (e) {
+    $("#modelFileNote").textContent = e.message;
+  }
 }
 
 function initPrediction() {
-  $("#forecastBtn").addEventListener("click", runForecast);
-  $("#compareBtn").addEventListener("click", runCompare);
+  $("#forecastBtn")?.addEventListener("click", () => { runForecast(); loadOutlook(); });
+  if ($("#compareBtn")) {
+    $("#compareBtn").addEventListener("click", runCompare);
+  }
+  loadModelStatus();
   runForecast();
+  loadOutlook();
+  if ($("#compareBtn")) {
+    runCompare();
+  }
+  loadMetrics();
+}
+
+async function loadSensors() {
+  const city = $("#citySelect").value;
+  history.replaceState(null, "", `?city=${encodeURIComponent(city)}`);
+  $("#aqiValue").textContent = "--";
+  $("#aqiCategory").textContent = "Waiting for devices…";
+  $("#pollutantGrid").innerHTML = "";
+  alertBox($("#alertBox"), "", "");
+  try {
+    const d = await api(`/api/sensors/${encodeURIComponent(city)}?hours=48`);
+    const latest = d.latest || {};
+    const status = d.status || {};
+    $("#sensorStatusLine").textContent = `${status.total_readings || 0} stored readings` + (status.last ? ` · last ${status.last.city} / ${status.last.device_id}` : "");
+    if (!latest.ok) {
+      $("#aqiCategory").textContent = latest.error || "No recent sensor data";
+      alertBox($("#alertBox"), "info", latest.error || "No recent sensor readings. Devices should POST to /api/sensors/reading.");
+    } else {
+      $("#aqiValue").textContent = latest.aqi ?? "--";
+      $("#aqiCategory").innerHTML = latest.aqi == null ? esc(latest.category || "Unavailable") : categoryBadge(latest.aqi, latest.category);
+      $("#aqiBar").innerHTML = latest.aqi != null ? `<i style="left:${Math.min(latest.aqi, 500) / 5}%"></i>` : "";
+      $("#healthText").textContent = latest.health || "";
+      $("#dominantText").textContent = latest.dominant ? `${latest.dominant}: ${latest.dominant_info}` : "Not enough sensor pollutants for CPCB AQI.";
+      $("#metaText").textContent = `Devices: ${(latest.devices || []).join(", ") || "--"} · ${latest.estimate_time || "--"}`;
+      $("#pollutantGrid").innerHTML = (latest.pollutants || []).map(p => `
+        <div class="pcard ${p.key === latest.dominant ? "dom" : ""}">
+          <div class="name">${esc(p.label)}</div>
+          <div class="val">${p.value === null ? "--" : fmt(p.value, p.key === "CO" ? 2 : 1)}</div>
+          <div class="unit">${esc(p.unit)}</div>
+          <div class="sub">${p.subindex === null ? "no data" : "sub-index " + fmt(p.subindex)}</div>
+          <span class="tag sensor">Sensor</span>
+        </div>`).join("");
+    }
+    const points = d.points || [];
+    draw("sensorChart", {
+      type: "line",
+      data: { labels: points.map(p => p.t), datasets: [{ label: "Sensor AQI", data: points.map(p => p.aqi), borderColor: "#7b73f1", tension: .2 }] },
+      options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { maxTicksLimit: 6 } } } }
+    });
+    $("#sensorNote").textContent = points.length
+      ? `${points.length} hardware readings in the last 48 hours.`
+      : "Nothing stored yet. Once devices post to Flask, points appear here and in /api/sensors/export for Colab.";
+  } catch (e) {
+    alertBox($("#alertBox"), "err", e.message);
+  }
+}
+
+function initSensors() {
+  const q = new URLSearchParams(location.search).get("city");
+  if (q) $("#citySelect").value = q;
+  $("#citySelect").addEventListener("change", loadSensors);
+  loadSensors();
+  setInterval(loadSensors, 60 * 1000);
 }
 
 /* ------------------------------------------------------------ POLICY */
@@ -660,6 +823,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const page = document.body.dataset.page;
   if (page === "home") initHome();
   else if (page === "monitoring") initMonitoring();
+  else if (page === "sensors") initSensors();
   else if (page === "prediction") initPrediction();
   else if (page === "insights") initInsights();
   else if (page === "policy") initPolicy();

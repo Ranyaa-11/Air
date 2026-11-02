@@ -1,8 +1,9 @@
-"""Real-time monitoring: live API (same endpoint/fields as the notebook) +
-optional hardware sensors posting readings to /api/sensors/reading.
+"""Real-time monitoring from the live CPCBCCR API, plus a separate sensor store.
 
-Every successful live fetch is logged to SQLite so the site builds its own
-real observation history (shown as the "recorded by AIRWISE" chart)."""
+API monitoring, physical sensors and ML prediction are independent data
+sources. Sensor readings never replace API pollutant values on monitoring
+pages. Successful API fetches are logged so the 48-hour CPCBCCR trend can
+be drawn from timestamped records stored by this app."""
 import os
 import json
 import time
@@ -168,11 +169,22 @@ class MonitoringService:
             last = con.execute("SELECT city, device_id, ts_utc FROM sensor_readings ORDER BY ts_utc DESC LIMIT 1").fetchone()
         return {"total_readings": n, "last": dict(last) if last else None}
 
-    # ---- merged current reading --------------------------------------------------------
+    def _pollutant_cards(self, values, res, source):
+        cards = []
+        for p in aqi.POLLUTANTS:
+            v = values.get(p)
+            cards.append({
+                "key": p, "label": aqi.LABELS[p],
+                "value": None if v is None else round(float(v), 2),
+                "unit": aqi.UNITS[p], "subindex": res["subindices"].get(p),
+                "source": source, "info": aqi.POLLUTANT_INFO[p],
+            })
+        return cards
+
     def current(self, city):
+        """CPCBCCR API snapshot only. Physical sensors are not mixed in."""
         api = self.fetch_api(city)
-        sensor = self.latest_sensor(city)
-        if not api.get("ok") and not sensor:
+        if not api.get("ok"):
             return {
                 "ok": False,
                 "city": city,
@@ -180,77 +192,81 @@ class MonitoringService:
                 "api_ok": False,
                 "api_error": api.get("detail"),
                 "last_success": api.get("last_success"),
+                "data_sources": ["api"],
             }
 
-        values, origin = {}, {}
+        values = {}
         for p in aqi.POLLUTANTS:
-            if api.get("ok") and api["values"].get(p) is not None:
-                values[p], origin[p] = float(api["values"][p]), "api"
-            if sensor and p in sensor["values"]:
-                values[p], origin[p] = float(sensor["values"][p]), "sensor"
-
+            if api["values"].get(p) is not None:
+                values[p] = float(api["values"][p])
         res = aqi.calculate_aqi(values)
         cat = aqi.category(res["aqi"])
         now = datetime.now(IST)
-        api_timestamp = (
-            self._parse_timestamp(api.get("api_time"))
-            if api.get("ok") and any(origin.get(p) == "api" for p in aqi.POLLUTANTS)
-            else None
-        )
-        sensor_timestamp = (
-            self._parse_timestamp(sensor["ts_utc"])
-            if sensor and any(origin.get(p) == "sensor" for p in aqi.POLLUTANTS)
-            else None
-        )
-        source_timestamps = [
-            stamp for stamp in (api_timestamp, sensor_timestamp) if stamp is not None
-        ]
+        api_timestamp = self._parse_timestamp(api.get("api_time"))
         api_age_minutes = source_age_minutes(api_timestamp, now)
-        sensor_age_minutes = source_age_minutes(sensor_timestamp, now)
-        source_ages = [
-            age for age in (api_age_minutes, sensor_age_minutes) if age is not None
-        ]
-        estimate_age_minutes = max(source_ages) if source_ages else None
-        estimate_time = (
-            min(source_timestamps).strftime("%Y-%m-%d %H:%M:%S IST")
-            if source_timestamps else None
-        )
-        source_ages_by_name = {
-            "cpcbccr": {
-                "timestamp": api_timestamp.strftime("%Y-%m-%d %H:%M:%S IST"),
-                "age_minutes": api_age_minutes,
-            } if api_timestamp else None,
-            "sensor": {
-                "timestamp": sensor_timestamp.strftime("%Y-%m-%d %H:%M:%S IST"),
-                "age_minutes": sensor_age_minutes,
-            } if sensor_timestamp else None,
-        }
-        pollutants = []
-        for p in aqi.POLLUTANTS:
-            v = values.get(p)
-            pollutants.append({"key": p, "label": aqi.LABELS[p], "value": None if v is None else round(v, 2 if p != "CO" else 2),
-                               "unit": aqi.UNITS[p], "subindex": res["subindices"].get(p),
-                               "source": origin.get(p), "info": aqi.POLLUTANT_INFO[p]})
-        sources = sorted(set(origin.values()))
+        estimate_time = api_timestamp.strftime("%Y-%m-%d %H:%M:%S IST") if api_timestamp else None
         return {
             "ok": True, "city": city,
             "aqi": res["aqi"], "category": cat, "color": aqi.color(res["aqi"]),
             "dominant": res["dominant"], "dominant_info": aqi.POLLUTANT_INFO.get(res["dominant"]),
-            "health": aqi.HEALTH.get(cat), "pollutants": pollutants,
+            "health": aqi.HEALTH.get(cat),
+            "pollutants": self._pollutant_cards(values, res, "api"),
             "missing": [aqi.LABELS[p] for p in aqi.POLLUTANTS if values.get(p) is None],
             "values": values,
-            "data_sources": sources,
-            "api_ok": bool(api.get("ok")), "api_error": None if api.get("ok") else api.get("error"),
+            "data_sources": ["api"],
+            "api_ok": True, "api_error": None,
             "api_time": api.get("api_time"), "us_aqi": api.get("us_aqi"),
             "estimate_time": estimate_time,
-            "estimate_age_minutes": None if estimate_age_minutes is None else round(estimate_age_minutes, 1),
-            "estimate_old": estimate_age_minutes is not None and estimate_age_minutes > 180,
-            "source_ages": source_ages_by_name,
-            "feed_warning": None if api.get("ok") else api.get("error"),
-            "sensor": None if not sensor else {"devices": sensor["devices"], "ts_utc": sensor["ts_utc"]},
-            "grid": [api.get("grid_lat"), api.get("grid_lon")] if api.get("ok") else None,
+            "estimate_age_minutes": None if api_age_minutes is None else round(api_age_minutes, 1),
+            "estimate_old": api_age_minutes is not None and api_age_minutes > 180,
+            "source_ages": {
+                "cpcbccr": {
+                    "timestamp": estimate_time,
+                    "age_minutes": api_age_minutes,
+                } if api_timestamp else None,
+                "sensor": None,
+            },
+            "feed_warning": None,
+            "sensor": None,
+            "grid": [api.get("grid_lat"), api.get("grid_lon")],
             "coords": CITY_COORDS[city],
-            "fetched_at": self._display_timestamp(api.get("fetched_at")) if api.get("ok") else None,
+            "fetched_at": self._display_timestamp(api.get("fetched_at")),
+        }
+
+    def sensor_current(self, city):
+        """Latest hardware-sensor snapshot for a district. Independent of the API."""
+        sensor = self.latest_sensor(city)
+        if not sensor:
+            return {
+                "ok": False, "city": city,
+                "error": "No recent sensor readings for this district.",
+                "data_sources": ["sensor"],
+            }
+        values = {p: float(sensor["values"][p]) for p in aqi.POLLUTANTS if p in sensor["values"]}
+        res = aqi.calculate_aqi(values)
+        cat = aqi.category(res["aqi"])
+        now = datetime.now(IST)
+        sensor_timestamp = self._parse_timestamp(sensor["ts_utc"])
+        age_minutes = source_age_minutes(sensor_timestamp, now)
+        stamp = sensor_timestamp.strftime("%Y-%m-%d %H:%M:%S IST") if sensor_timestamp else None
+        return {
+            "ok": True, "city": city,
+            "aqi": res["aqi"], "category": cat, "color": aqi.color(res["aqi"]),
+            "dominant": res["dominant"], "dominant_info": aqi.POLLUTANT_INFO.get(res["dominant"]),
+            "health": aqi.HEALTH.get(cat),
+            "pollutants": self._pollutant_cards(values, res, "sensor"),
+            "missing": [aqi.LABELS[p] for p in aqi.POLLUTANTS if values.get(p) is None],
+            "values": values,
+            "data_sources": ["sensor"],
+            "devices": sensor["devices"],
+            "ts_utc": sensor["ts_utc"],
+            "estimate_time": stamp,
+            "estimate_age_minutes": None if age_minutes is None else round(age_minutes, 1),
+            "estimate_old": age_minutes is not None and age_minutes > 180,
+            "source_ages": {
+                "cpcbccr": None,
+                "sensor": {"timestamp": stamp, "age_minutes": age_minutes} if sensor_timestamp else None,
+            },
         }
 
     def live_log(self, city, hours=48):
@@ -261,8 +277,47 @@ class MonitoringService:
         out = []
         for r in rows:
             t = datetime.fromisoformat(r["ts_utc"]).astimezone(IST)
-            out.append({"t": t.strftime("%d %b %H:%M"), "aqi": r["aqi"]})
+            out.append({"t": t.strftime("%d %b %H:%M"), "iso": r["ts_utc"], "aqi": r["aqi"]})
         return out
+
+    def sensor_log(self, city, hours=48):
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+        with self._db() as con:
+            rows = con.execute(
+                "SELECT device_id, ts_utc, pollutants FROM sensor_readings WHERE city=? AND ts_utc>=? ORDER BY ts_utc",
+                (city, cutoff),
+            ).fetchall()
+        out = []
+        for r in rows:
+            values = json.loads(r["pollutants"])
+            res = aqi.calculate_aqi(values)
+            t = datetime.fromisoformat(r["ts_utc"]).astimezone(IST)
+            out.append({
+                "t": t.strftime("%d %b %H:%M"),
+                "iso": r["ts_utc"],
+                "device_id": r["device_id"],
+                "aqi": res["aqi"],
+                "values": values,
+            })
+        return out
+
+    def export_readings(self, city=None, limit=5000):
+        limit = max(1, min(int(limit), 20000))
+        sql = "SELECT city, device_id, ts_utc, pollutants FROM sensor_readings"
+        args = []
+        if city:
+            sql += " WHERE city=?"
+            args.append(city)
+        sql += " ORDER BY ts_utc DESC LIMIT ?"
+        args.append(limit)
+        with self._db() as con:
+            rows = con.execute(sql, args).fetchall()
+        readings = []
+        for r in reversed(rows):
+            payload = {"city": r["city"], "device_id": r["device_id"], "ts_utc": r["ts_utc"]}
+            payload.update(json.loads(r["pollutants"]))
+            readings.append(payload)
+        return {"ok": True, "count": len(readings), "readings": readings}
 
 
 monitoring_service = MonitoringService()

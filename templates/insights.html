@@ -1,18 +1,17 @@
 {% extends "base.html" %}
-{% block title %}Insights{% endblock %}
+{% block title %}Source Inference{% endblock %}
 {% block content %}
-<h1 class="page-title">Insights Hub</h1>
-<p class="page-sub">Elevated pollutant indicators and scenario simulation for AIRWISE cities; pollutant measurements alone cannot identify their emission sources.</p>
-
-<div class="card narrow-select">
-  <h3>Select City</h3>
-  <select id="citySelect">{% for c in cities %}<option value="{{ c }}" {{ 'selected' if c=='Bengaluru' }}>{{ c }}</option>{% endfor %}</select>
-</div>
-
-<div id="insightTabs">
-  <div id="sourceTab" class="tab-panel">
-    <div id="sourcesBody" class="card"></div>
+<section class="dashboard-page">
+  <div class="dashboard-heading">
+    <span class="eyebrow">Colab inference rules · API pollutants</span>
+    <h1 class="page-title">Source inference</h1>
+    <p class="page-sub">Possible contributors are suggested from elevated CPCB sub-indices using the same pollutant rules tested in Colab. This is not source apportionment and does not use the prediction model.</p>
   </div>
-</div>
+  <div class="card narrow-select">
+    <h3>Select district</h3>
+    <select id="citySelect">{% for c in cities %}<option value="{{ c }}" {{ 'selected' if c=='Bengaluru' }}>{{ c }}</option>{% endfor %}</select>
+  </div>
+  <div id="sourcesBody" class="card"></div>
+</section>
 {% endblock %}
 {% block scripts %}{% endblock %}

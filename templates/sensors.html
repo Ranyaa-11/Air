@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Physical Sensors{% endblock %}
+{% block content %}
+<section class="dashboard-page sensors-page">
+  <div class="dashboard-heading">
+    <span class="eyebrow">Third data source · hardware</span>
+    <h1 class="page-title">Physical sensor integration</h1>
+    <p class="page-sub">Devices post readings to the Flask backend. Stored values appear here and can be downloaded into Colab. Sensor data does not replace CPCBCCR monitoring or ML prediction.</p>
+  </div>
+
+  <div class="card controls dashboard-controls">
+    <div><label for="citySelect">District</label>
+      <select id="citySelect">{% for c in cities %}<option value="{{ c }}" {{ 'selected' if c=='Bengaluru' }}>{{ c }}</option>{% endfor %}</select></div>
+    <span class="small muted" id="sensorStatusLine">Checking stored readings…</span>
+  </div>
+
+  <div id="alertBox" aria-live="polite"></div>
+
+  <div class="monitoring-hero">
+    <article class="card primary-aqi-card">
+      <div class="row-between">
+        <div><span class="eyebrow">Hardware snapshot</span><h2>Sensor AQI</h2></div>
+        <span class="tag">Physical sensors · not API</span>
+      </div>
+      <div class="aqi-row">
+        <div id="aqiValue" class="aqi-num">--</div>
+        <div><div id="aqiCategory" class="aqi-cat">Waiting for devices…</div><div id="healthText" class="small muted"></div></div>
+      </div>
+      <div id="aqiBar" class="aqi-bar"></div>
+      <p id="dominantText" class="small">AQI uses the same CPCB sub-index rules as Colab when at least three pollutants including PM2.5 or PM10 are present.</p>
+      <p id="metaText" class="small muted"></p>
+    </article>
+    <article class="card">
+      <span class="eyebrow">How sensors reach the website</span>
+      <h2>Do not send devices to Colab first</h2>
+      <p>Post JSON to <code>/api/sensors/reading</code> with header <code>X-API-Key</code>. The site stores every accepted reading. Colab should pull <code>/api/sensors/export</code> when you want the same table in a notebook.</p>
+      <pre class="code-block" id="sensorPayload">{"district":"Bengaluru","device_id":"node-1","PM2.5":41.2,"PM10":80,"NO2":22,"SO2":5,"CO":0.8,"OZONE":35}</pre>
+    </article>
+  </div>
+
+  <section class="card pollutant-section">
+    <div class="row-between">
+      <div><span class="eyebrow">Latest device values</span><h2>Sensor pollutant cards</h2></div>
+      <span class="tag">Stored by Flask</span>
+    </div>
+    <div id="pollutantGrid" class="pollutants"></div>
+  </section>
+
+  <section class="card chart-section">
+    <div class="row-between"><div><span class="eyebrow">Device activity</span><h2>Sensor readings recorded by AIRWISE</h2></div><span class="tag">Last 48 hours</span></div>
+    <canvas id="sensorChart" height="110"></canvas>
+    <p id="sensorNote" class="small muted"></p>
+  </section>
+</section>
+{% endblock %}

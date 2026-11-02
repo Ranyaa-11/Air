@@ -3,6 +3,7 @@ import os
 import hmac
 import csv
 import json
+from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
 
@@ -50,6 +51,11 @@ def prediction():
 @app.route("/insights")
 def insights():
     return render_template("insights.html", page="insights", cities=CITIES)
+
+
+@app.route("/sensors")
+def sensors():
+    return render_template("sensors.html", page="sensors", cities=CITIES)
 
 
 @app.route("/policy")
@@ -146,6 +152,31 @@ def api_sensor_reading():
     return jsonify({"ok": True, "district": c, "stored": stored})
 
 
+@app.route("/api/sensors/export")
+def api_sensors_export():
+    city = request.args.get("city")
+    if city:
+        city, e = city_or_404(city)
+        if e: return e
+    limit = request.args.get("limit", 5000, type=int)
+    return jsonify(monitoring_service.export_readings(city, limit))
+
+
+@app.route("/api/sensors/<city>")
+def api_sensors_city(city):
+    c, e = city_or_404(city)
+    if e: return e
+    latest = monitoring_service.sensor_current(c)
+    hours = max(1, min(request.args.get("hours", 48, type=int), 168))
+    return jsonify({
+        "ok": True,
+        "city": c,
+        "latest": latest,
+        "points": monitoring_service.sensor_log(c, hours),
+        "status": monitoring_service.sensor_status(),
+    })
+
+
 # ------------------------------------------------------------------ API: prediction
 @app.route("/api/predict/forecast/<city>")
 def api_forecast(city):
@@ -165,6 +196,24 @@ def api_forecast(city):
         return err(ex, 409)
     except Exception as ex:
         return err(ex)
+
+
+@app.route("/api/predict/outlook")
+def api_district_outlook():
+    if not data_service.available():
+        return err("Historical data not loaded. Run prepare_data.py", 503)
+    days = max(1, min(request.args.get("days", 7, type=int), 14))
+
+    def _one(city):
+        try:
+            res = prediction_service.forecast(city, days)
+            return {"ok": True, "city": city, "forecast": res["forecast"], "basis": res["basis"]}
+        except Exception as ex:
+            return {"ok": False, "city": city, "error": str(ex)}
+
+    with ThreadPoolExecutor(max_workers=7) as pool:
+        rows = list(pool.map(_one, CITIES))
+    return jsonify({"ok": True, "days": days, "rows": rows})
 
 
 @app.route("/api/predict/reliability")

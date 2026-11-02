@@ -89,9 +89,9 @@ def infer(city):
             {}
         )
 
-        basis = f"Model estimate ({current.get('estimate_time') or '--'})"
+        basis = f"CPCBCCR API pollutants ({current.get('estimate_time') or '--'})"
         if current.get("estimate_old"):
-            basis = f"Old model estimate ({current.get('estimate_time') or '--'})"
+            basis = f"Old CPCBCCR API pollutants ({current.get('estimate_time') or '--'})"
 
     else:
 
@@ -167,7 +167,7 @@ def infer(city):
         if subindex is None:
             continue
 
-        if subindex <= 50:
+        if subindex <= 100:
             continue
 
         if pollutant not in SIGNATURES:
@@ -181,7 +181,7 @@ def infer(city):
 
             f"{aqi.LABELS[pollutant]} "
             f"sub-index {subindex:.0f} "
-            f"(above the CPCB 'Good' limit of 50)"
+            f"(above the CPCB 'Moderate' threshold of 100)"
         ]
 
 
@@ -264,5 +264,5 @@ def infer(city):
             seasonal,
 
         "caveat":
-            "This view highlights elevated pollutant sub-indices and lists broad possible associations only. A current-hour feed estimate or sensor snapshot cannot identify emission sources or quantify their contributions. The historical chart is based on daily dataset values and is not a like-for-like baseline for current-hour readings."
+            "Inference uses the same pollutant-to-contributor rules as the Colab notebook: elevated CPCB sub-indices (above 50) are listed with possible sources. This is rule-based association, not source apportionment. API readings, physical sensors and ML forecasts are kept as separate modules."
     }
