@@ -55,9 +55,14 @@ KNOWN_DAY_VALIDATION = (
 
 
 def build_outlook_schedule(last_date, requested_days, anchor_date=None):
-    """Build a forward-looking forecast schedule anchored to the current day."""
-    anchor = pd.Timestamp(anchor_date) if anchor_date is not None else pd.Timestamp(datetime.now(ZoneInfo("Asia/Kolkata")).date())
-    outlook_start = max(pd.Timestamp(last_date) + pd.Timedelta(days=1), anchor)
+    """Build a forecast schedule that starts on the day after the latest historical observation.
+
+    The model should never jump forward to a later calendar date simply because the current day
+    is far ahead of the source data. The forecast reference point is the last valid historical
+    date, not the wall-clock date or a stale anchor.
+    """
+    last = pd.Timestamp(last_date)
+    outlook_start = last + pd.Timedelta(days=1)
     schedule = [
         (outlook_start + pd.Timedelta(days=offset), False, offset + 1)
         for offset in range(max(1, int(requested_days)))
