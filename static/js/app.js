@@ -115,20 +115,37 @@ async function initHome() {
 
   async function loadHomeCity(city) {
     currentCity = city;
-    $("#homeCitySelect").value = city;
-    $("#heroCityLabel").textContent = city;
-    $("#trendCityLabel").textContent = city;
-    $("#homeAqi").textContent = "--";
-    $("#heroAqi").textContent = "--";
-    $("#heroMeter").style.width = "0%";
-    $("#heroMeter").style.background = "transparent";
-    $("#homeAqiRing").style.setProperty("--aqi-progress", "0%");
-    $("#homeAqiRing").style.setProperty("--aqi-color", "transparent");
-    $("#homeCategory").textContent = "Connecting…";
-    $("#homeHealth").textContent = "Loading the latest district estimate…";
-    $("#heroCategory").textContent = "Connecting…";
-    $("#heroUpdated").textContent = "--";
-    $("#homeLiveMeta").textContent = "Model estimate (time): --";
+    const homeCitySelect = $("#homeCitySelect");
+    const heroCityLabel = $("#heroCityLabel");
+    const trendCityLabel = $("#trendCityLabel");
+    const homeAqi = $("#homeAqi");
+    const heroAqi = $("#heroAqi");
+    const heroMeter = $("#heroMeter");
+    const homeAqiRing = $("#homeAqiRing");
+    const homeCategory = $("#homeCategory");
+    const homeHealth = $("#homeHealth");
+    const heroCategory = $("#heroCategory");
+    const heroUpdated = $("#heroUpdated");
+    const homeLiveMeta = $("#homeLiveMeta");
+
+    if (homeCitySelect) homeCitySelect.value = city;
+    if (heroCityLabel) heroCityLabel.textContent = city;
+    if (trendCityLabel) trendCityLabel.textContent = city;
+    if (homeAqi) homeAqi.textContent = "--";
+    if (heroAqi) heroAqi.textContent = "--";
+    if (heroMeter) {
+      heroMeter.style.width = "0%";
+      heroMeter.style.background = "transparent";
+    }
+    if (homeAqiRing) {
+      homeAqiRing.style.setProperty("--aqi-progress", "0%");
+      homeAqiRing.style.setProperty("--aqi-color", "transparent");
+    }
+    if (homeCategory) homeCategory.textContent = "Connecting…";
+    if (homeHealth) homeHealth.textContent = "Loading the latest district estimate…";
+    if (heroCategory) heroCategory.textContent = "Connecting…";
+    if (heroUpdated) heroUpdated.textContent = "--";
+    if (homeLiveMeta) homeLiveMeta.textContent = "Model estimate (time): --";
     for (const id of ["homePm25", "homePm10", "homeNo2", "homeSo2", "homeCo", "homeOzone", "heroPm25", "heroPm10", "heroNo2", "heroOzone"]) {
       const el = document.getElementById(id);
       if (el) el.textContent = "--";
