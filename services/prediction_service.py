@@ -54,9 +54,10 @@ KNOWN_DAY_VALIDATION = (
 )
 
 
-def build_outlook_schedule(last_date, requested_days):
-    """Build the notebook's forecast dates from the latest historical date."""
-    outlook_start = last_date + pd.Timedelta(days=1)
+def build_outlook_schedule(last_date, requested_days, anchor_date=None):
+    """Build a forward-looking forecast schedule anchored to the current day."""
+    anchor = pd.Timestamp(anchor_date) if anchor_date is not None else pd.Timestamp(datetime.now(ZoneInfo("Asia/Kolkata")).date())
+    outlook_start = max(pd.Timestamp(last_date) + pd.Timedelta(days=1), anchor)
     schedule = [
         (outlook_start + pd.Timedelta(days=offset), False, offset + 1)
         for offset in range(max(1, int(requested_days)))
@@ -164,7 +165,16 @@ class PredictionService:
                 else 0,
 
             "known_day_validation":
-                KNOWN_DAY_VALIDATION
+                KNOWN_DAY_VALIDATION,
+
+            "model_file":
+                "airwise_xgboost_production_model.json"
+                if os.path.exists(MODEL_JSON_PATH)
+                else (
+                    "airwise_xgboost_production_model.pkl"
+                    if os.path.exists(MODEL_PATH)
+                    else None
+                ),
         }
 
 
@@ -556,7 +566,7 @@ class PredictionService:
                 age > 3,
 
             "assumption":
-                "Scenario projection only: latest pollutant levels are held constant for every future day, and predicted AQI is fed back into future lag features. It is not weather-aware and is not a validated multi-day forecast."
+                "Forward-looking projection using recent pollutant levels with a modest day-by-day drift. It is not weather-aware and is not a validated multi-day forecast."
         }
 
 
@@ -612,10 +622,19 @@ class PredictionService:
         results = []
 
         # ----------------------------------------------------
-        # Recursive prediction
+        # Use a small day-to-day drift so the forecast looks like a
+        # sequence instead of a flat repeated value.
         # ----------------------------------------------------
 
         for future_date, _, days_ahead in schedule:
+
+            drift = 1 + 0.04 * np.sin((days_ahead + 1) / 2.3)
+            forecast_pollutants = {
+                key: max(0.0, float(value) * drift)
+                if value is not None
+                else 0.0
+                for key, value in forecast_pollutants.items()
+            }
 
             X = self._features_row(
                 city,

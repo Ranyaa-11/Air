@@ -5,7 +5,7 @@
   <div class="dashboard-heading">
     <span class="eyebrow">Karnataka · real-time monitoring</span>
     <h1 class="page-title">Air quality monitoring</h1>
-    <p class="page-sub">Current CPCBCCR model estimates, reported pollutant concentrations and recent measured station history. A model estimate is not an official station reading.</p>
+    <p class="page-sub">This module uses the live CPCBCCR API only. AQI is calculated with the Colab CPCB breakpoint logic. Physical sensors and ML forecasts are separate pages and are not mixed into these values.</p>
   </div>
 
   <div class="card controls dashboard-controls">
@@ -22,7 +22,7 @@
     <article class="card primary-aqi-card">
       <div class="row-between">
         <div><span class="eyebrow">Current conditions</span><h2>Model estimate</h2></div>
-        <span class="tag">CPCBCCR · not an official reading</span>
+        <span class="tag">API monitoring · not a sensor</span>
       </div>
       <div class="aqi-row">
         <div id="aqiValue" class="aqi-num">--</div>
@@ -30,7 +30,7 @@
       </div>
       <div id="aqiBar" class="aqi-bar"></div>
       <p id="dominantText" class="small">AQI is calculated when at least three pollutants, including PM2.5 or PM10, are available.</p>
-      <p id="aqiSourceLabel" class="small muted">CPCBCCR model estimate</p>
+      <p id="aqiSourceLabel" class="small muted">CPCBCCR API estimate</p>
       <p id="estimateFreshness" class="small muted">Data age: --</p>
       <p id="metaText" class="small muted"></p>
     </article>
@@ -59,10 +59,5 @@
     <div id="pollutantGrid" class="pollutants"></div>
   </section>
 
-  <section class="card chart-section">
-    <div class="row-between"><div><span class="eyebrow">Model activity</span><h2>CPCBCCR estimates recorded by AIRWISE</h2></div><span class="tag">Last 48 hours</span></div>
-    <canvas id="liveChart" height="110"></canvas>
-    <p id="liveNote" class="small muted"></p>
-  </section>
 </section>
 {% endblock %}

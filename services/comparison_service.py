@@ -31,7 +31,7 @@ def compare_today():
     with ThreadPoolExecutor(max_workers=7) as ex:
         rows = list(ex.map(_one, CITIES))
     return {"rows": rows,
-            "note": "This is a same-day model comparison, not an accuracy score. The two values are based on current pollutants and may share the same inputs; current-hour AQI may also combine CPCBCCR model estimates with AIRWISE sensor readings. It is not an independent station-validation result."}
+            "note": "Same-day comparison of the XGBoost model (historical training features plus current-hour API pollutants) against CPCB AQI calculated from the same API snapshot. Dates and district match. This is not a multi-day forecast score and does not use physical sensor readings."}
 
 
 def ranking():
