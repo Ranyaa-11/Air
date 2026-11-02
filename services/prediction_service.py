@@ -566,7 +566,7 @@ class PredictionService:
                 age > 3,
 
             "assumption":
-                "Forward-looking projection using recent pollutant levels with a modest day-by-day drift. It is not weather-aware and is not a validated multi-day forecast."
+                "Forward-looking projection using the latest available district pollutant context and historical AQI lags. It is not weather-aware and is not a validated multi-day forecast."
         }
 
 
@@ -621,20 +621,7 @@ class PredictionService:
 
         results = []
 
-        # ----------------------------------------------------
-        # Use a small day-to-day drift so the forecast looks like a
-        # sequence instead of a flat repeated value.
-        # ----------------------------------------------------
-
         for future_date, _, days_ahead in schedule:
-
-            drift = 1 + 0.04 * np.sin((days_ahead + 1) / 2.3)
-            forecast_pollutants = {
-                key: max(0.0, float(value) * drift)
-                if value is not None
-                else 0.0
-                for key, value in forecast_pollutants.items()
-            }
 
             X = self._features_row(
                 city,

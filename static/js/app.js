@@ -5,14 +5,27 @@ const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": 
 const chip = (cat, color) => `<span class="chip" style="background:${color};color:${String(color).toUpperCase() === "#7E0023" ? "#ffffff" : "#111827"}">${esc(cat)}</span>`;
 const fmt = (v, d = 0) => (v === null || v === undefined || Number.isNaN(v)) ? "--" : Number(v).toFixed(d);
 
-async function api(url, opts) {
-  const r = await fetch(url, opts);
-  let j = null;
-  try { j = await r.json(); } catch (e) { /* non-JSON */ }
-  if (!r.ok || (j && j.ok === false)) throw new Error((j && j.error) || `Request failed (${r.status})`);
-  return j;
+async function api(url, opts = {}, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { ...opts, signal: controller.signal });
+    let j = null;
+    try { j = await r.json(); } catch (e) { /* non-JSON */ }
+    if (!r.ok || (j && j.ok === false)) throw new Error((j && j.error) || `Request failed (${r.status})`);
+    return j;
+  } catch (e) {
+    if (e.name === "AbortError") throw new Error("Data unavailable, retry");
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 const alertBox = (el, kind, msg) => { el.innerHTML = msg ? `<div class="alert ${kind}">${esc(msg)}</div>` : ""; };
+const setText = (id, value) => {
+  const els = [document.getElementById(id), document.getElementById(id.replace("home", "hero"))];
+  els.filter(Boolean).forEach(el => { el.textContent = value; });
+};
 const charts = {};
 function draw(id, cfg) { if (charts[id]) charts[id].destroy(); charts[id] = new Chart($("#" + id), cfg); }
 const AQI_COLORS = a => a <= 50 ? "#00A651" : a <= 100 ? "#A3D977" : a <= 200 ? "#FFF200" : a <= 300 ? "#F7941D" : a <= 400 ? "#ED1C24" : "#7E0023";
@@ -116,8 +129,9 @@ async function initHome() {
     $("#heroCategory").textContent = "Connecting…";
     $("#heroUpdated").textContent = "--";
     $("#homeLiveMeta").textContent = "Model estimate (time): --";
-    for (const id of ["homePm25", "homePm10", "homeNo2", "homeSo2", "homeCo", "homeOzone"]) {
-      $("#" + id).textContent = "--";
+    for (const id of ["homePm25", "homePm10", "homeNo2", "homeSo2", "homeCo", "homeOzone", "heroPm25", "heroPm10", "heroNo2", "heroOzone"]) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = "--";
     }
     const forecastTitle = $("#homeForecastTitle");
     const forecastAqi = $("#homeForecastAqi");
@@ -153,12 +167,21 @@ async function initHome() {
       $("#homeHealth").textContent = d.health || "Not enough current data to provide health context.";
       $("#homeLiveMeta").textContent = `CPCBCCR API (${d.estimate_time || "--"})${d.estimate_old ? " · old estimate" : ""}${d.feed_warning ? ` · ${d.feed_warning}` : ""}`;
       const values = Object.fromEntries(d.pollutants.map(p => [p.key, p.value]));
-      $("#homePm25").textContent = fmt(values["PM2.5"], 1);
-      $("#homePm10").textContent = fmt(values.PM10, 1);
-      $("#homeNo2").textContent = fmt(values.NO2, 1);
-      $("#homeSo2").textContent = fmt(values.SO2, 1);
-      $("#homeCo").textContent = fmt(values.CO, 2);
-      $("#homeOzone").textContent = fmt(values.OZONE, 1);
+      const pollutantMap = {
+        "PM2.5": ["homePm25", "heroPm25"],
+        PM10: ["homePm10", "heroPm10"],
+        NO2: ["homeNo2", "heroNo2"],
+        SO2: ["homeSo2"],
+        CO: ["homeCo"],
+        OZONE: ["homeOzone", "heroOzone"]
+      };
+      Object.entries(pollutantMap).forEach(([key, ids]) => {
+        const value = values[key];
+        ids.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = fmt(value, key === "CO" ? 2 : 1);
+        });
+      });
       const homeRecommendation = $("#homeRecommendation");
       const homePolicyRecommendation = $("#homePolicyRecommendation");
       if (homeRecommendation) homeRecommendation.textContent = d.health || "Follow local public-health guidance; a usable live health advisory is not available for this reading.";
@@ -167,11 +190,11 @@ async function initHome() {
         : "Review local pollutant indicators and historical policy analysis before prioritizing interventions.";
     } catch (e) {
       if (city !== currentCity) return;
-      $("#heroCategory").textContent = "Data unavailable";
+      $("#heroCategory").textContent = "Data unavailable, retry";
       $("#heroUpdated").textContent = "Feed unavailable";
-      $("#homeCategory").textContent = "Data unavailable";
-      $("#homeHealth").textContent = e.message;
-      $("#homeLiveMeta").textContent = e.message;
+      $("#homeCategory").textContent = "Data unavailable, retry";
+      $("#homeHealth").textContent = "Data unavailable, retry";
+      $("#homeLiveMeta").textContent = "Data unavailable, retry";
       const homeRecommendation = $("#homeRecommendation");
       if (homeRecommendation) homeRecommendation.textContent = "Current health guidance is unavailable because the district feed could not be reached.";
     }
@@ -526,17 +549,22 @@ async function loadOutlook() {
 async function loadMetrics() {
   try {
     const d = await api("/api/predict/direct-metrics");
-    if (!d.available || !d.metrics || !d.metrics.length) {
-      $("#metricsNote").textContent = "Direct-horizon holdout metrics are not available yet. Run train_direct_forecast.py to generate them.";
+    const metrics = Array.isArray(d && d.metrics) ? d.metrics : [];
+    if (!metrics.length || !metrics.some(m => m.model_mae != null)) {
+      $("#metricsNote").textContent = "Model MAE is not available for the direct-horizon metrics file, so this chart is hidden.";
+      if (charts.metricsChart) {
+        charts.metricsChart.destroy();
+        delete charts.metricsChart;
+      }
       return;
     }
     draw("metricsChart", {
       type: "bar",
       data: {
-        labels: d.metrics.map(m => `t+${m.horizon}`),
+        labels: metrics.map(m => `t+${m.horizon_days ?? m.horizon ?? (metrics.indexOf(m) + 1)}`),
         datasets: [
-          { label: "Model MAE", data: d.metrics.map(m => m.mae), backgroundColor: "#318cf1" },
-          { label: "Persistence MAE", data: d.metrics.map(m => m.persistence_mae), backgroundColor: "#94a3b8" }
+          { label: "Model MAE", data: metrics.map(m => m.model_mae), backgroundColor: "#318cf1" },
+          { label: "Persistence MAE", data: metrics.map(m => m.persistence_mae), backgroundColor: "#94a3b8" }
         ]
       },
       options: { scales: { y: { beginAtZero: true } } }

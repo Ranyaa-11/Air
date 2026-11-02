@@ -167,7 +167,7 @@ def infer(city):
         if subindex is None:
             continue
 
-        if subindex <= 100:
+        if subindex <= 50:
             continue
 
         if pollutant not in SIGNATURES:
@@ -181,7 +181,7 @@ def infer(city):
 
             f"{aqi.LABELS[pollutant]} "
             f"sub-index {subindex:.0f} "
-            f"(above the CPCB 'Moderate' threshold of 100)"
+            f"(above the CPCB elevated threshold of 50)"
         ]
 
 

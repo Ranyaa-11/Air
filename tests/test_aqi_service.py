@@ -22,6 +22,14 @@ class SubindexTests(unittest.TestCase):
         self.assertEqual(subindex(500, "PM2.5"), 500.0)
         self.assertEqual(subindex(500.1, "PM2.5"), 500.0)
 
+    def test_notebook_breakpoints_match_reference_values(self):
+        self.assertAlmostEqual(subindex(30.5, "PM2.5"), 51.0)
+        self.assertAlmostEqual(subindex(55, "PM10"), 55.0)
+        self.assertAlmostEqual(subindex(66, "NO2"), 82.41)
+        self.assertAlmostEqual(subindex(66, "SO2"), 82.41)
+        self.assertAlmostEqual(subindex(1.3, "CO"), 61.89)
+        self.assertAlmostEqual(subindex(75, "OZONE"), 75.0)
+
 
 class AqiEligibilityTests(unittest.TestCase):
     def test_requires_at_least_three_valid_pollutants(self):

@@ -45,7 +45,7 @@
   <section class="card model-method" id="metricsCard">
     <span class="eyebrow">Technical results</span>
     <h2>Model performance</h2>
-    <p id="metricsNote">Holdout metrics from direct multi-horizon training. Optional context; not shown as live forecast accuracy.</p>
+    <p id="metricsNote">Holdout metrics from a separate direct-horizon training run. The live forecast path is the recursive one-day-at-a-time XGBoost projection; this chart is for context only.</p>
     <canvas id="metricsChart" height="110"></canvas>
   </section>
 </section>
