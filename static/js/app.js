@@ -145,7 +145,7 @@ async function initHome() {
     if (homeHealth) homeHealth.textContent = "Loading the latest district estimate…";
     if (heroCategory) heroCategory.textContent = "Connecting…";
     if (heroUpdated) heroUpdated.textContent = "--";
-    if (homeLiveMeta) homeLiveMeta.textContent = "Model estimate (time): --";
+    if (homeLiveMeta) homeLiveMeta.textContent = "API-derived AQI estimate (time): --";
     for (const id of ["homePm25", "homePm10", "homeNo2", "homeSo2", "homeCo", "homeOzone", "heroPm25", "heroPm10", "heroNo2", "heroOzone"]) {
       const el = document.getElementById(id);
       if (el) el.textContent = "--";
