@@ -56,20 +56,36 @@ KNOWN_DAY_VALIDATION = (
 
 
 def build_outlook_schedule(last_date, requested_days, anchor_date=None):
-    """Build a forecast schedule that starts on the day after the latest historical observation.
+    """Build the forecast schedule from the actual first forecast anchor date.
 
-    The model should never jump forward to a later calendar date simply because the current day
-    is far ahead of the source data. The forecast reference point is the last valid historical
-    date, not the wall-clock date or a stale anchor.
+    When live CPCBCCR pollutant values are available for the current day, the first forecast row
+    should use that anchor date instead of defaulting to the last historical record + 1 day.
     """
     last = pd.Timestamp(last_date)
-    outlook_start = last + pd.Timedelta(days=1)
+    if last.tz is None:
+        last = last.tz_localize("Asia/Kolkata")
+    else:
+        last = last.tz_convert("Asia/Kolkata")
+    last = last.normalize()
+
+    if anchor_date is not None:
+        anchor = pd.Timestamp(anchor_date)
+        if anchor.tz is None:
+            anchor = anchor.tz_localize("Asia/Kolkata")
+        else:
+            anchor = anchor.tz_convert("Asia/Kolkata")
+        anchor = anchor.normalize()
+        if anchor < last:
+            anchor = last + pd.Timedelta(days=1)
+    else:
+        anchor = last + pd.Timedelta(days=1)
+
     requested_days = max(1, int(requested_days))
     schedule = [
-        (outlook_start + pd.Timedelta(days=offset), False, offset + 1)
+        (anchor + pd.Timedelta(days=offset), False, offset + 1)
         for offset in range(requested_days)
     ]
-    return schedule, 0, outlook_start
+    return schedule, 0, anchor
 
 
 class PredictionService:
@@ -630,10 +646,30 @@ class PredictionService:
         if live_pollutants:
             pollutants = {**pollutants, **{p: float(v) for p, v in live_pollutants.items() if p in aqi.POLLUTANTS}}
 
+        anchor_date = None
+        if live_reference:
+            try:
+                raw_anchor = str(live_reference).strip()
+                if raw_anchor.endswith(" IST"):
+                    raw_anchor = raw_anchor[:-4].strip()
+                elif raw_anchor.endswith(" UTC"):
+                    raw_anchor = raw_anchor[:-4].strip()
+                anchor_date = pd.Timestamp(raw_anchor)
+                if anchor_date.tz is None:
+                    anchor_date = anchor_date.tz_localize("Asia/Kolkata")
+                else:
+                    anchor_date = anchor_date.tz_convert("Asia/Kolkata")
+                anchor_date = anchor_date.normalize()
+            except Exception:
+                anchor_date = None
+
+        if anchor_date is None:
+            anchor_date = last_date + pd.Timedelta(days=1)
+
         working_history = list(history)
         forecast_pollutants = dict(pollutants)
         schedule, _, first_outlook_date = build_outlook_schedule(
-            last_date, requested_days
+            last_date, requested_days, anchor_date=anchor_date
         )
 
         results = []
@@ -659,8 +695,8 @@ class PredictionService:
 
         basis = {
             **self._basis(last_date, pollutant_date),
-            "anchor": "historical",
-            "anchor_date": last_date.strftime("%Y-%m-%d"),
+            "anchor": "live_cpcb" if live_reference else "historical",
+            "anchor_date": anchor_date.strftime("%Y-%m-%d"),
             "gap_filled_days": 0,
             "outlook_start": first_outlook_date.strftime("%Y-%m-%d"),
             "input_reference_date": live_reference or last_date.strftime("%Y-%m-%d"),
