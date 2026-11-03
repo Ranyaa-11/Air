@@ -163,7 +163,7 @@ async function initHome() {
       delete charts.homeTrendChart;
     }
     $("#homeTrendTitle").textContent = "CPCBCCR AQI, last 48 hours";
-    $("#homeTrendNote").textContent = "Loading timestamped API records stored by AIRWISE…";
+    $("#homeTrendNote").textContent = "Collecting data - 0 record(s) so far";
     try {
       const d = await api(`/api/realtime/${encodeURIComponent(city)}`);
       if (city !== currentCity) return;
@@ -182,7 +182,7 @@ async function initHome() {
       $("#homeAqiRing").style.setProperty("--aqi-progress", aqiValue == null ? "0%" : `${Math.min(aqiValue, 500) * .152}%`);
       $("#homeAqiRing").style.setProperty("--aqi-color", aqiValue == null ? "transparent" : (d.color || AQI_COLORS(aqiValue)));
       $("#homeHealth").textContent = d.health || "Not enough current data to provide health context.";
-      $("#homeLiveMeta").textContent = `CPCBCCR API (${d.estimate_time || "--"})${d.estimate_old ? " · old estimate" : ""}${d.feed_warning ? ` · ${d.feed_warning}` : ""}`;
+      $("#homeLiveMeta").textContent = `CPCBCCR API ${d.estimate_time ? `(${d.estimate_time})` : "(--)"}${d.estimate_old ? " · old estimate" : ""}${d.feed_warning ? ` · ${d.feed_warning}` : ""}`;
       const values = Object.fromEntries(d.pollutants.map(p => [p.key, p.value]));
       const pollutantMap = {
         "PM2.5": ["homePm25", "heroPm25"],
@@ -237,7 +237,7 @@ async function initHome() {
       });
       $("#homeTrendNote").textContent = points.length
         ? `${points.length} API records stored by AIRWISE in the last 48 hours.`
-        : "No timestamped API records yet. This chart fills as Monitoring fetches the CPCBCCR feed.";
+        : "Collecting data - 0 record(s) so far";
       $("#homeTrendTitle").textContent = "CPCBCCR AQI, last 48 hours";
     } catch (e) {
       $("#homeTrendNote").textContent = e.message;
@@ -473,8 +473,8 @@ async function runForecast() {
       return `<tr><td>${esc(x.date)}</td><td>${esc(x.day)}</td><td><b>${x.aqi}</b></td><td>${categoryBadge(x.aqi, x.category || aqiCategoryBand(x.aqi).split(" (")[0])}</td></tr>`;
     }).join("");
     const b = d.basis;
-    const fallbackWarning = b.historical_fallback_used ? `<div class="alert warn">Historical fallback used: forecast input reference date ${esc(b.input_reference_date || b.history_ends || "--")} and forecast start date ${esc(b.forecast_start_date || b.outlook_start || "--")}.</div>` : "";
-    $("#basisBox").innerHTML = `<div class="alert info">Latest historical day: ${esc(b.history_ends)}. Forecast begins: ${esc(b.outlook_start)}.</div>${fallbackWarning}`;
+    const fallbackWarning = b.historical_fallback_used ? `<div class="alert warn">Day 1 uses live CPCBCCR pollutants from ${esc(b.input_reference_date || b.history_ends || "--")}; recursive projection after that. Historical station data ends ${esc(b.history_ends || "--")}.</div>` : "";
+    $("#basisBox").innerHTML = `<div class="alert info">Day 1 uses live CPCBCCR pollutants from ${esc(b.input_reference_date || b.history_ends || "--")}; recursive projection after that. Historical station data ends ${esc(b.history_ends || "--")}.</div>${fallbackWarning}`;
     $("#modelNote").textContent = b.historical_fallback_used ? (b.historical_fallback_warning || b.assumption) : b.assumption;
     draw("forecastTrendChart", {
       type: "line",
