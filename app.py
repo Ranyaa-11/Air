@@ -202,7 +202,7 @@ def api_forecast(city):
 def api_district_outlook():
     if not data_service.available():
         return err("Historical data not loaded. Run prepare_data.py", 503)
-    days = max(1, min(request.args.get("days", 7, type=int), 14))
+    days = max(1, min(request.args.get("days", 7, type=int), 7))
 
     def _one(city):
         try:

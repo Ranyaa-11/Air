@@ -373,9 +373,9 @@ async function loadMonitoring() {
     $("#pollutantGrid").innerHTML = d.pollutants.map(p => `
       <div class="pcard ${p.key === d.dominant ? "dom" : ""}" title="${esc(p.info)}">
         <div class="name">${esc(p.label)}</div>
-        <div class="val">${p.value === null ? "--" : fmt(p.value, p.key === "CO" ? 1 : p.value < 10 ? 1 : 0)}</div>
+        <div class="val">${p.value === null ? "--" : fmt(p.value, p.key === "CO" ? 2 : p.value < 10 ? 1 : 0)}</div>
         <div class="unit">${esc(p.unit)}</div>
-        <div class="sub">${p.subindex === null ? "no data" : "sub-index " + fmt(p.subindex)}</div>
+        <div class="sub">${p.subindex === null ? "no data" : "sub-index " + fmt(p.subindex, 2)}</div>
         ${p.source ? `<span class="tag ${p.source}">${p.source === "api" ? "API" : p.source === "sensor" ? "Sensor" : esc(p.source)}</span>` : ""}
       </div>`).join("");
     $("#dominantText").textContent = d.dominant ? `${d.dominant}: ${d.dominant_info}` : "AQI could not be computed (needs at least 3 pollutants including PM2.5 or PM10).";
@@ -473,8 +473,9 @@ async function runForecast() {
       return `<tr><td>${esc(x.date)}</td><td>${esc(x.day)}</td><td><b>${x.aqi}</b></td><td>${categoryBadge(x.aqi, x.category || aqiCategoryBand(x.aqi).split(" (")[0])}</td></tr>`;
     }).join("");
     const b = d.basis;
-    $("#basisBox").innerHTML = `<div class="alert info">Latest historical day: ${esc(b.history_ends)}. Forecast begins: ${esc(b.outlook_start)}.</div>`;
-    $("#modelNote").textContent = b.assumption;
+    const fallbackWarning = b.historical_fallback_used ? `<div class="alert warn">Historical fallback used: forecast input reference date ${esc(b.input_reference_date || b.history_ends || "--")} and forecast start date ${esc(b.forecast_start_date || b.outlook_start || "--")}.</div>` : "";
+    $("#basisBox").innerHTML = `<div class="alert info">Latest historical day: ${esc(b.history_ends)}. Forecast begins: ${esc(b.outlook_start)}.</div>${fallbackWarning}`;
+    $("#modelNote").textContent = b.historical_fallback_used ? (b.historical_fallback_warning || b.assumption) : b.assumption;
     draw("forecastTrendChart", {
       type: "line",
       data: { labels: d.forecast.map(x => x.date), datasets: [{
@@ -596,7 +597,7 @@ async function loadModelStatus() {
     const h = await api("/api/health");
     const model = h.model || {};
     $("#modelFileNote").textContent = model.loaded
-      ? `Loaded ${model.model_file || "production model"} · ${model.features || 64} features.`
+      ? `${model.features || 64} production features loaded.`
       : `Model not loaded: ${model.error || "unknown error"}`;
   } catch (e) {
     $("#modelFileNote").textContent = e.message;

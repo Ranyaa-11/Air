@@ -12,7 +12,7 @@
     <div><label for="citySelect">District</label>
       <select id="citySelect">{% for c in cities %}<option value="{{ c }}" {{ 'selected' if c=='Bengaluru' }}>{{ c }}</option>{% endfor %}</select></div>
     <div><label for="daysSelect">Forecast horizon</label>
-      <select id="daysSelect"><option>1</option><option>3</option><option>5</option><option selected>7</option><option>10</option><option>14</option></select></div>
+      <select id="daysSelect"><option>1</option><option selected>3</option><option>5</option><option>7</option></select></div>
     <button id="forecastBtn" class="btn" type="button">Generate forecast</button>
   </div>
 

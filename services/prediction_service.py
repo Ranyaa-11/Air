@@ -23,6 +23,7 @@ from .data_service import (
     CITIES,
     BASE_DIR
 )
+from .monitoring_service import monitoring_service
 
 
 # ============================================================
@@ -63,9 +64,10 @@ def build_outlook_schedule(last_date, requested_days, anchor_date=None):
     """
     last = pd.Timestamp(last_date)
     outlook_start = last + pd.Timedelta(days=1)
+    requested_days = max(1, int(requested_days))
     schedule = [
         (outlook_start + pd.Timedelta(days=offset), False, offset + 1)
-        for offset in range(max(1, int(requested_days)))
+        for offset in range(requested_days)
     ]
     return schedule, 0, outlook_start
 
@@ -501,28 +503,14 @@ class PredictionService:
                 f"No pollutant data available for {city}."
             )
 
-        # Remove None/NaN issues safely
         clean_pollutants = {}
 
         for pollutant in aqi.POLLUTANTS:
-
-            value = pollutants.get(
-                pollutant
-            )
-
-            if value is None:
-
-                clean_pollutants[pollutant] = 0
-
-            elif pd.isna(value):
-
-                clean_pollutants[pollutant] = 0
-
+            value = pollutants.get(pollutant)
+            if value is None or pd.isna(value):
+                clean_pollutants[pollutant] = 0.0
             else:
-
-                clean_pollutants[pollutant] = float(
-                    value
-                )
+                clean_pollutants[pollutant] = float(value)
 
         return (
             list(history),
@@ -530,6 +518,29 @@ class PredictionService:
             clean_pollutants,
             pollutant_date
         )
+
+    def _live_or_historical_pollutants(self, city):
+        """Use live CPCB pollutant values when valid, otherwise fall back to the latest historical profile."""
+        live = monitoring_service.current(city)
+        values = {}
+        if live.get("ok") and isinstance(live.get("values"), dict):
+            values = {
+                pollutant: float(value)
+                for pollutant, value in live["values"].items()
+                if value is not None and not pd.isna(value)
+            }
+
+        if not values:
+            history, last_date = data_service.aqi_log_history(city)
+            historical = data_service.latest_pollutants(city)[0] or {}
+            if not historical:
+                raise ValueError(f"No live or historical pollutant data available for {city}.")
+            values = {p: float(v) for p, v in historical.items() if v is not None and not pd.isna(v)}
+            actual_reference_date = last_date.strftime("%Y-%m-%d") if last_date is not None else None
+            fallback_warning = "Historical fallback used: live API data unavailable or invalid; forecast input reference date is the latest valid historical day."
+            return values, actual_reference_date, fallback_warning
+
+        return values, live.get("estimate_time") or None, None
 
 
     # ========================================================
@@ -615,19 +626,18 @@ class PredictionService:
             pollutant_date
         ) = self._context(city)
 
-        working_history = list(
-            history
-        )
+        live_pollutants, live_reference, historical_warning = self._live_or_historical_pollutants(city)
+        if live_pollutants:
+            pollutants = {**pollutants, **{p: float(v) for p, v in live_pollutants.items() if p in aqi.POLLUTANTS}}
 
+        working_history = list(history)
         forecast_pollutants = dict(pollutants)
         schedule, _, first_outlook_date = build_outlook_schedule(
             last_date, requested_days
         )
 
         results = []
-
         for future_date, _, days_ahead in schedule:
-
             X = self._features_row(
                 city,
                 future_date,
@@ -635,65 +645,30 @@ class PredictionService:
                 forecast_pollutants
             )
 
-            predicted_log, predicted_aqi = (
-                self._predict(X)
-            )
-
+            predicted_log, predicted_aqi = self._predict(X)
             results.append({
-
-                "date":
-                    future_date.strftime(
-                        "%Y-%m-%d"
-                    ),
-
-                "day":
-                    future_date.strftime(
-                        "%a"
-                    ),
-
+                "date": future_date.strftime("%Y-%m-%d"),
+                "day": future_date.strftime("%a"),
                 "aqi": int(round(predicted_aqi)),
-
-                "category":
-                    aqi.category(
-                        predicted_aqi
-                    ),
-
-                "color":
-                    aqi.color(
-                        predicted_aqi
-                    ),
+                "category": aqi.category(predicted_aqi),
+                "color": aqi.color(predicted_aqi),
                 "value_type": "Notebook XGBoost forecast",
                 "days_ahead": days_ahead,
             })
+            working_history.append(predicted_log)
 
-            # ------------------------------------------------
-            # Feed predicted log AQI into next day's history
-            # ------------------------------------------------
-
-            working_history.append(
-                predicted_log
-            )
-
-        return {
-
-            "city":
-                city,
-
-            "forecast":
-                results,
-
-            "basis":
-                {
-                    **self._basis(
-                        last_date,
-                        pollutant_date
-                    ),
-                    "anchor": "historical",
-                    "anchor_date": last_date.strftime("%Y-%m-%d"),
-                    "gap_filled_days": 0,
-                    "outlook_start": first_outlook_date.strftime("%Y-%m-%d"),
-                }
+        basis = {
+            **self._basis(last_date, pollutant_date),
+            "anchor": "historical",
+            "anchor_date": last_date.strftime("%Y-%m-%d"),
+            "gap_filled_days": 0,
+            "outlook_start": first_outlook_date.strftime("%Y-%m-%d"),
+            "input_reference_date": live_reference or last_date.strftime("%Y-%m-%d"),
+            "forecast_start_date": first_outlook_date.strftime("%Y-%m-%d"),
+            "historical_fallback_used": bool(historical_warning),
+            "historical_fallback_warning": historical_warning,
         }
+        return {"city": city, "forecast": results, "basis": basis}
 
 
     # ========================================================

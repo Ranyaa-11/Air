@@ -73,6 +73,11 @@ def subindex(value, pollutant):
     return 500.0 if v > bps[-1][1] else None
 
 
+def subindex_for_display(value, pollutant):
+    """Return a rounded display value while preserving the original underlying concentration for AQI math."""
+    return round(subindex(value, pollutant), 2) if subindex(value, pollutant) is not None else None
+
+
 def calculate_aqi(values):
     """values: {pollutant: concentration}. CPCB rule (as in the notebook's
     historical AQI): at least 3 pollutants, one of them PM2.5 or PM10.
