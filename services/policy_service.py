@@ -9,6 +9,7 @@ import threading
 import pandas as pd
 
 from . import aqi_service as aqi
+from .aqi_service import UNITS
 from .data_service import DATA_DIR, CITY_ALIASES, CITIES, data_service
 from .monitoring_service import monitoring_service
 
@@ -198,6 +199,63 @@ class PolicyService:
         except Exception:
             return str(start)
 
+    @staticmethod
+    def _window_bounds(policy_start, months):
+        start = pd.to_datetime(policy_start)
+        before_end = start - pd.Timedelta(days=1)
+        before_start = start - pd.DateOffset(months=months)
+        after_start = start
+        after_end = after_start + (before_end - before_start)
+        return {
+            "before_start": before_start.normalize(),
+            "before_end": before_end.normalize(),
+            "after_start": after_start.normalize(),
+            "after_end": after_end.normalize(),
+        }
+
+    @staticmethod
+    def _valid_imputed_mask(frame, pollutant):
+        series = pd.to_numeric(frame[pollutant], errors="coerce")
+        mask = series.notna()
+        lower = pollutant.lower().replace(" ", "")
+        for col in frame.columns:
+            key = str(col).strip().lower().replace(" ", "")
+            if key in {f"{lower}_imputed", f"{lower}_flag", f"{lower}_is_imputed", f"{lower}_missing", f"imputed_{lower}", f"flag_{lower}"}:
+                values = frame[col].astype(str).str.strip().str.lower()
+                mask &= ~values.isin({"1", "true", "y", "yes", "imputed", "missing"})
+        return mask
+
+    @staticmethod
+    def _pollutant_unit(pollutant):
+        unit = UNITS.get(str(pollutant).strip().upper(), UNITS.get(str(pollutant).strip().title(), "µg/m³"))
+        return unit.replace("OZONE", "Ozone") if False else unit
+
+    @staticmethod
+    def _compute_change_pct(before_mean, after_mean):
+        if before_mean is None or pd.isna(before_mean) or before_mean == 0:
+            return None
+        if after_mean is None or pd.isna(after_mean):
+            return None
+        return ((after_mean - before_mean) / before_mean) * 100.0
+
+    @staticmethod
+    def classify_effectiveness(results):
+        valid = []
+        for row in results or []:
+            value = row.get("change_pct") if isinstance(row, dict) else None
+            if value is None or pd.isna(value):
+                continue
+            valid.append(float(value))
+        if not valid:
+            return "Low Impact"
+        reduced = sum(1 for value in valid if value < 0)
+        ratio = (reduced / len(valid)) * 100.0
+        if ratio >= 70.0:
+            return "Highly Effective"
+        if ratio >= 40.0:
+            return "Moderately Effective"
+        return "Low Impact"
+
     def analyze(self, district, policy_name, window_months=1):
         district = self._normalize_city_name(district)
         if not district:
@@ -232,16 +290,13 @@ class PolicyService:
         if city_df.empty:
             raise ValueError(f"No valid dates found for '{district}'")
 
-        analysis_start = None
-        analysis_end = city_df["Date"].max()
         if policy_start:
-            analysis_start = pd.to_datetime(policy_start)
-            before_end = analysis_start - pd.Timedelta(days=1)
-            before_start = before_end - pd.DateOffset(months=months)
-            after_start = analysis_start
-            after_end = min(analysis_end, after_start + pd.DateOffset(months=months))
+            bounds = self._window_bounds(policy_start, months)
+            before_start = bounds["before_start"]
+            before_end = bounds["before_end"]
+            after_start = bounds["after_start"]
+            after_end = bounds["after_end"]
         else:
-            analysis_start = city_df["Date"].min()
             before_start = city_df["Date"].min()
             before_end = city_df["Date"].max()
             after_start = city_df["Date"].min()
@@ -258,62 +313,82 @@ class PolicyService:
         for pollutant in affected:
             if pollutant not in city_df.columns:
                 continue
-            before_series = pd.to_numeric(before_df[pollutant], errors="coerce")
-            after_series = pd.to_numeric(after_df[pollutant], errors="coerce")
-            before_vals = before_series.dropna()
-            after_vals = after_series.dropna()
+            before_mask = self._valid_imputed_mask(before_df, pollutant)
+            after_mask = self._valid_imputed_mask(after_df, pollutant)
+            before_vals = pd.to_numeric(before_df.loc[before_mask, pollutant], errors="coerce")
+            after_vals = pd.to_numeric(after_df.loc[after_mask, pollutant], errors="coerce")
+            before_vals = before_vals.dropna()
+            after_vals = after_vals.dropna()
             if before_vals.empty or after_vals.empty:
                 continue
             before = float(before_vals.mean())
             after = float(after_vals.mean())
-            change_pct = ((before - after) / before) * 100.0 if before else 0.0
-            impact = "No Impact"
-            if change_pct >= 20:
-                impact = "Improved"
-            elif change_pct >= 5:
-                impact = "Low Impact"
+            change_pct = self._compute_change_pct(before, after)
             rows.append({
                 "pollutant": pollutant,
                 "before": round(before, 2),
                 "after": round(after, 2),
-                "change_pct": round(change_pct, 1),
-                "impact": impact,
+                "before_mean": round(before, 2),
+                "after_mean": round(after, 2),
+                "before_valid_days": int(len(before_vals)),
+                "after_valid_days": int(len(after_vals)),
+                "unit": self._pollutant_unit(pollutant),
+                "change_pct": None if change_pct is None else round(change_pct, 1),
+                "impact": "No Impact",
                 "policy_start_date": policy_start,
             })
 
         if not rows:
             raise ValueError(f"No pollutant data found for {district} in the selected window")
 
+        valid_rows = [r for r in rows if r["change_pct"] is not None]
+        if valid_rows:
+            reduced_count = sum(1 for r in valid_rows if r["change_pct"] < 0)
+            improved_pct = (reduced_count / len(valid_rows)) * 100.0
+            status = "Highly Effective" if improved_pct >= 70.0 else "Moderately Effective" if improved_pct >= 40.0 else "Low Impact"
+            improved_label = "reduced"
+        else:
+            improved_pct = 0.0
+            reduced_count = 0
+            status = "Low Impact"
+            improved_label = "reduced"
+
+        for row in rows:
+            if row["change_pct"] is None:
+                row["impact"] = "No Impact"
+            elif row["change_pct"] < 0:
+                row["impact"] = "Reduced"
+            elif row["change_pct"] > 0:
+                row["impact"] = "Increased"
+            else:
+                row["impact"] = "No Change"
+
         avg_before = sum(r["before"] for r in rows) / len(rows)
         avg_after = sum(r["after"] for r in rows) / len(rows)
-        overall_change = ((avg_before - avg_after) / avg_before) * 100.0 if avg_before else 0.0
-        if overall_change >= 20:
-            status = "Improved"
-        elif overall_change >= 5:
-            status = "Low Impact"
-        else:
-            status = "No Impact"
+        overall_change_pct = self._compute_change_pct(avg_before, avg_after)
+        if overall_change_pct is None:
+            overall_change_pct = 0.0
 
         summary = (
-            f"For {district}, {policy_name} shows {overall_change:.1f}% average improvement across "
-            f"{', '.join(r['pollutant'] for r in rows[:3])} over the selected {months}-month analysis window."
+            f"For {district}, {policy_name} shows {reduced_count} of {len(valid_rows)} affected pollutants reduced "
+            f"({improved_pct:.1f}%) over the selected {months}-month analysis window."
         )
         recommendation = (
             f"{policy_name} was implemented on {policy_start or 'unknown date'} and the observed impact is {status.lower()} for {district}. "
             "Review pollutant-specific trends and continue enforcement where reductions remain limited."
         )
 
-        return {
+        result = {
             "city": district,
             "district": district,
             "policy": policy_name,
             "implementation_date": policy_start,
             "window_months": months,
             "periods": {
-                "before_start": before_df["Date"].min().strftime("%Y-%m-%d"),
-                "before_end": before_df["Date"].max().strftime("%Y-%m-%d"),
-                "after_start": after_df["Date"].min().strftime("%Y-%m-%d"),
-                "after_end": after_df["Date"].max().strftime("%Y-%m-%d"),
+                "before_start": before_start.strftime("%Y-%m-%d"),
+                "before_end": before_end.strftime("%Y-%m-%d"),
+                "after_start": after_start.strftime("%Y-%m-%d"),
+                "after_end": after_end.strftime("%Y-%m-%d"),
             },
             "affected_pollutants": [r["pollutant"] for r in rows],
             "results": rows,
@@ -322,8 +397,12 @@ class PolicyService:
             "recommendation": recommendation,
             "before_avg": round(avg_before, 2),
             "after_avg": round(avg_after, 2),
-            "overall_change_pct": round(overall_change, 1),
+            "overall_change_pct": round(overall_change_pct, 1),
+            "reduced_pollutant_count": reduced_count,
+            "total_valid_pollutants": len(valid_rows),
+            "reduction_percent": round(improved_pct, 1),
         }
+        return result
 
 
 

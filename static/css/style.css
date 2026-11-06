@@ -132,6 +132,14 @@ label{display:block;margin-bottom:5px;color:var(--muted);font-size:12px}
 .policy-card{padding:26px}
 .section-label,.panel-kicker{display:block;margin-bottom:7px;color:#72889d;font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase}
 .policy-card h2{margin:0 0 16px;font-family:var(--display);font-size:20px;letter-spacing:-.03em}
+.policy-results-table{margin-top:8px;border-collapse:collapse;width:100%}
+.policy-results-table th,.policy-results-table td{padding:10px 12px;border-bottom:1px solid rgba(148,177,201,.18);font-size:12px;color:#dfeaf4}
+.policy-results-table th{color:#a2b6c8;font-size:9px;letter-spacing:.12em;text-transform:uppercase}
+.policy-results-table tbody tr:hover{background:rgba(255,255,255,.02)}
+.policy-results-table .trend-up{color:#7dd3fc}
+.policy-results-table .trend-down{color:#86efac}
+.policy-results-table .trend-flat{color:#d1d5db}
+.policy-method-note{margin:14px 0 0;color:#dff3ff;font-size:12px;line-height:1.7}
 .selection-grid{display:grid;grid-template-columns:repeat(2,minmax(200px,1fr));gap:18px 24px;margin-top:18px}
 .field-box{display:flex;flex-direction:column;gap:6px}
 .field-box label{color:#adc0cf;font-size:11px;font-weight:600;letter-spacing:.02em}

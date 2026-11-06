@@ -776,36 +776,86 @@ async function analyzeSelectedPolicy() {
 
     pollutants.innerHTML = d.affected_pollutants.map(p => `<span class="tag" style="margin-right:6px;">${esc(p)}</span>`).join("") || "No pollutants mapped.";
 
+    const tableBody = document.getElementById("policyResultsBody");
+    if (tableBody) {
+      tableBody.innerHTML = (d.results || []).map(row => {
+        const pct = row.change_pct === null || row.change_pct === undefined || Number.isNaN(Number(row.change_pct)) ? "--" : `${Number(row.change_pct).toFixed(1)}%`;
+        const pctClass = row.change_pct === null || row.change_pct === undefined || Number.isNaN(Number(row.change_pct)) ? "trend-flat" : Number(row.change_pct) < 0 ? "trend-down" : Number(row.change_pct) > 0 ? "trend-up" : "trend-flat";
+        return `
+          <tr>
+            <td>${esc(row.pollutant || "-")}</td>
+            <td>${Number(row.before_mean ?? row.before ?? 0).toFixed(2)}</td>
+            <td>${Number(row.after_mean ?? row.after ?? 0).toFixed(2)}</td>
+            <td class="${pctClass}">${esc(pct)}</td>
+            <td>${esc(row.unit || "µg/m³")}</td>
+            <td>${esc(Number(row.before_valid_days ?? 0))}</td>
+            <td>${esc(Number(row.after_valid_days ?? 0))}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    const validResults = (d.results || []).filter(r => r && r.change_pct !== null && r.change_pct !== undefined && !Number.isNaN(Number(r.change_pct)));
+    const improvedCount = Number(d.reduced_pollutant_count ?? validResults.filter(r => Number(r.change_pct) < 0).length);
+    const validCount = Number(d.total_valid_pollutants ?? validResults.length);
+    const reductionPct = Number(d.reduction_percent ?? (validCount ? (improvedCount / validCount) * 100 : 0));
+    const mixedUnits = new Set((d.results || []).map(r => r.unit || "µg/m³")).size > 1;
+
     summary.innerHTML = `
       <p class="summary-line">${esc(d.policy)} was analyzed using a ${esc(d.window_months)}-month before-and-after window. Before measurements: ${esc(d.periods.before_start)} to ${esc(d.periods.before_end)}; after measurements: ${esc(d.periods.after_start)} to ${esc(d.periods.after_end)}.</p>
-      <p class="summary-line">Improved ${esc(d.results.filter(r => r.change_pct >= 5).length)} out of ${esc(d.results.length)} pollutants.</p>
+      <p class="summary-line">Improved ${esc(improvedCount)} out of ${esc(validCount || d.results.length)} affected pollutants (${esc(reductionPct.toFixed(1))}%).</p>
       <p class="summary-line">Overall impact: <strong>${esc(d.status)}</strong></p>
     `;
 
-    const improvedPollutants = d.results.filter(r => r.change_pct >= 5).map(r => r.pollutant);
-    const worsenedPollutants = d.results.filter(r => r.change_pct < 0).map(r => r.pollutant);
+    const improvedPollutants = validResults.filter(r => Number(r.change_pct) < 0).map(r => r.pollutant);
+    const worsenedPollutants = validResults.filter(r => Number(r.change_pct) > 0).map(r => r.pollutant);
     const insightItems = [];
-    if (improvedPollutants.length) insightItems.push(`<li>Improved pollutants: ${improvedPollutants.map(p => esc(p)).join(", ")}</li>`);
+    if (improvedPollutants.length) insightItems.push(`<li>Reduced pollutants: ${improvedPollutants.map(p => esc(p)).join(", ")}</li>`);
     if (worsenedPollutants.length) insightItems.push(`<li>Increased pollutants: ${worsenedPollutants.map(p => esc(p)).join(", ")}</li>`);
-    if (!insightItems.length) insightItems.push(`<li>No clear pollutant trend change detected in this window.</li>`);
+    if (!insightItems.length) insightItems.push(`<li>No pollutant reduction was detected in the selected window.</li>`);
     insights.innerHTML = insightItems.join("");
 
     rec.textContent = d.recommendation || "";
 
+    const unitLabel = mixedUnits ? "Mean concentration (units vary by pollutant)" : `Mean concentration (${(d.results[0]?.unit) || "µg/m³"})`;
     draw("policyChart", {
       type: "bar",
       data: {
-        labels: d.results.map(r => r.pollutant),
+        labels: (d.results || []).map(r => r.pollutant),
         datasets: [
-          { label: "Before policy", data: d.results.map(r => r.before), backgroundColor: "#7db8e8" },
-          { label: "After policy", data: d.results.map(r => r.after), backgroundColor: "#f2a9b0" }
+          { label: "Before policy", data: (d.results || []).map(r => r.before_mean ?? r.before ?? null), backgroundColor: "rgba(125, 211, 252, 0.9)", borderColor: "#7dd3fc", borderWidth: 1 },
+          { label: "After policy", data: (d.results || []).map(r => r.after_mean ?? r.after ?? null), backgroundColor: "rgba(250, 146, 168, 0.84)", borderColor: "#fda4af", borderWidth: 1 }
         ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: true }, tooltip: { enabled: true } },
-        scales: { y: { beginAtZero: false, title: { display: true, text: "Mean concentration" } } }
+        plugins: {
+          legend: { labels: { color: "#dfeaf4" } },
+          tooltip: {
+            enabled: true,
+            callbacks: {
+              label: (context) => {
+                const index = context.dataIndex;
+                const row = (d.results || [])[index];
+                return `${context.dataset.label}: ${Number(context.parsed.y).toFixed(2)}${row && row.unit ? ` ${row.unit}` : ""}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: "#dfeaf4" },
+            grid: { color: "rgba(148,163,184,.12)" },
+            title: { display: true, text: "Pollutant", color: "#dfeaf4" }
+          },
+          y: {
+            beginAtZero: true,
+            ticks: { color: "#dfeaf4" },
+            grid: { color: "rgba(148,163,184,.12)" },
+            title: { display: true, text: unitLabel, color: "#dfeaf4" }
+          }
+        }
       }
     });
   } catch (e) {

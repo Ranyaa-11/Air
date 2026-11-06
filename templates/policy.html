@@ -81,6 +81,27 @@
     </div>
   </div>
 
+  <div class="policy-card results-card">
+    <div class="section-label">DETAILED RESULTS</div>
+    <h2>Pollutant-by-Pollutant Comparison</h2>
+    <div class="table-wrap">
+      <table class="tbl policy-results-table">
+        <thead>
+          <tr>
+            <th>Pollutant</th>
+            <th>Before mean concentration</th>
+            <th>After mean concentration</th>
+            <th>Percentage change</th>
+            <th>Unit</th>
+            <th>Valid days before</th>
+            <th>Valid days after</th>
+          </tr>
+        </thead>
+        <tbody id="policyResultsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="policy-card insights-card">
     <div class="section-label">KEY INSIGHTS</div>
     <h2>Policy Findings</h2>
@@ -89,6 +110,7 @@
       <h3>Recommendation</h3>
       <p id="policyRecommendation"></p>
     </div>
+    <p class="policy-method-note">Observed before/after difference; not proof of causation. Seasonal effects are not controlled.</p>
   </div>
 </div>
 {% endblock %}
